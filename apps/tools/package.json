@@ -1,0 +1,14 @@
+{
+  "name": "@cws/tools",
+  "version": "0.0.1",
+  "description": "",
+  "author": "",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {},
+  "dependencies": {
+    "tronweb": "^6.2.1",
+    "bcrypt": "^6.0.0"
+  },
+  "devDependencies": {}
+}

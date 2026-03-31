@@ -1,0 +1,405 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+/// Prisma Client 설정
+generator client {
+  provider = "prisma-client-js"
+}
+
+/// PostgreSQL 데이터소스
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// ------------------------------------------------------------------
+/// HealthPing
+/// ------------------------------------------------------------------
+/// 시스템 헬스 체크용 테이블
+/// - API / DB 상태 확인용
+/// - 운영 모니터링에서 사용 가능
+model HealthPing {
+  id        String   @id @default(uuid()) @db.Uuid
+  message   String
+  createdAt DateTime @default(now())
+}
+
+/// ------------------------------------------------------------------
+/// Partner
+/// ------------------------------------------------------------------
+/// 외부 연동 파트너
+/// - 데이터 격리의 최상위 단위
+/// - API Key 기반 인증 주체
+model Partner {
+  /// PK (UUID)
+  id String @id @default(uuid()) @db.Uuid
+
+  /// 파트너 이름 (고유)
+  name String @unique
+
+  /// 콜백 URL (입금 확정 시 호출)
+  callbackUrl String
+
+  /// 콜백 서명용 Secret (HMAC)
+  callbackSecret String
+
+  /// API Key prefix (노출 가능)
+  apiKeyPrefix String @unique
+
+  /// API Key hash (원본 저장 금지)
+  apiKeyHash String
+
+  /// API Key 생성 시간
+  apiKeyCreatedAt DateTime
+
+  /// 관리자(Member) 참조
+  memberId String @db.Uuid
+
+  /// 활성 여부
+  isActive Boolean @default(true)
+
+  /// 생성 시간
+  createdAt DateTime @default(now())
+
+  /// 수정 시간
+  updatedAt DateTime @updatedAt
+
+  /// 관계
+  users        User[]
+  wallets      Wallet[]
+  deposits     Deposit[]
+  withdrawals  Withdrawal[]
+  callbackLogs CallbackLog[]
+
+  @@index([isActive])
+}
+
+/// ------------------------------------------------------------------
+/// User
+/// ------------------------------------------------------------------
+/// 파트너 소속 사용자
+/// - 외부 서비스의 유저 식별 단위
+model User {
+  /// PK
+  id String @id @default(uuid()) @db.Uuid
+
+  /// 소속 파트너
+  partnerId String  @db.Uuid
+  partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+
+  /// 외부 시스템 사용자 ID
+  externalUserId String
+
+  /// 활성 여부
+  isActive Boolean @default(true)
+
+  /// 생성 시간
+  createdAt DateTime @default(now())
+
+  /// 수정 시간
+  updatedAt DateTime @updatedAt
+
+  /// 관계
+  wallets     Wallet[]
+  deposits    Deposit[]
+  withdrawals Withdrawal[]
+
+  /// 동일 파트너 내 unique
+  @@unique([partnerId, externalUserId])
+  @@index([partnerId])
+  @@index([isActive])
+}
+
+/// 지갑 상태
+enum WalletStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+/// ------------------------------------------------------------------
+/// Wallet
+/// ------------------------------------------------------------------
+/// 입금용 / 출금용 지갑
+/// - Tron address 기반
+/// - privateKey 암호화 저장 필수
+model Wallet {
+  /// PK
+  id String @id @default(uuid()) @db.Uuid
+
+  /// 파트너
+  partnerId String @db.Uuid
+
+  /// 사용자
+  userId String @db.Uuid
+
+  /// 지갑 주소 (TRON)
+  address String @unique @db.VarChar(64)
+
+  /// 암호화된 private key (AES256)
+  encryptedPrivateKey String @db.Text
+
+  /// 상태
+  status WalletStatus @default(ACTIVE)
+
+  /// 생성 / 수정
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// 관계
+  partner     Partner      @relation(fields: [partnerId], references: [id])
+  user        User         @relation(fields: [userId], references: [id])
+  deposits    Deposit[]
+  withdrawals Withdrawal[]
+
+  @@index([partnerId])
+  @@index([userId])
+  @@index([status])
+}
+
+/// 입금 상태
+enum DepositStatus {
+  DETECTED /// 블록 감지 완료
+  CONFIRMED /// 컨펌 완료 (잔액 반영 기준)
+  FAILED /// 처리 실패
+}
+
+/// ------------------------------------------------------------------
+/// Deposit
+/// ------------------------------------------------------------------
+/// 블록체인 입금 트랜잭션
+/// - txHash 기반 멱등 처리
+/// - 상태 기반 처리 흐름
+model Deposit {
+  /// PK
+  id String @id @default(uuid()) @db.Uuid
+
+  /// 소속
+  partnerId String @db.Uuid
+  userId    String @db.Uuid
+  walletId  String @db.Uuid
+
+  /// 토큰 정보
+  tokenSymbol   String
+  tokenContract String
+
+  /// 트랜잭션 해시 (unique)
+  txHash String @unique
+
+  /// 주소
+  fromAddress String
+  toAddress   String
+
+  /// 입금 금액
+  amount Decimal
+
+  /// 블록 번호
+  blockNumber Int
+
+  /// 상태
+  status DepositStatus
+
+  /// 감지 시간
+  detectedAt DateTime
+
+  /// 확정 시간
+  confirmedAt DateTime?
+
+  /// 생성 시간
+  createdAt DateTime @default(now())
+
+  /// 관계
+  partner      Partner       @relation(fields: [partnerId], references: [id])
+  callbackLogs CallbackLog[]
+  user         User          @relation(fields: [userId], references: [id])
+  wallet       Wallet        @relation(fields: [walletId], references: [id])
+}
+
+/// 콜백 상태
+enum CallbackStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+/// ------------------------------------------------------------------
+/// CallbackLog
+/// ------------------------------------------------------------------
+/// 파트너 콜백 로그
+/// - HMAC 서명 기반
+/// - retry 정책 관리
+model CallbackLog {
+  /// PK
+  id String @id @default(uuid()) @db.Uuid
+
+  /// 소속
+  partnerId String @db.Uuid
+  depositId String @db.Uuid
+
+  /// 트랜잭션
+  txHash String @unique
+
+  /// 이벤트 타입 (deposit.confirmed 등)
+  eventType String
+
+  /// 호출 URL
+  callbackUrl String
+
+  /// 요청 바디 (JSON string)
+  requestBody String
+
+  /// 요청 서명
+  requestSignature String
+
+  /// 시도 횟수
+  attemptCount Int
+
+  /// 최대 시도 횟수
+  maxAttempts Int
+
+  /// 마지막 응답 코드
+  lastStatusCode Int?
+
+  /// 상태
+  status CallbackStatus
+
+  /// 마지막 시도 시간
+  lastAttemptAt DateTime?
+
+  /// 생성 / 수정
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// 관계
+  partner Partner @relation(fields: [partnerId], references: [id])
+  deposit Deposit @relation(fields: [depositId], references: [id])
+
+  @@index([txHash])
+  @@index([partnerId])
+  @@index([depositId])
+  @@index([eventType])
+  @@index([status])
+  @@index([lastAttemptAt])
+  @@map("callback_logs")
+}
+
+/// ------------------------------------------------------------------
+/// CallbackTestLog
+/// ------------------------------------------------------------------
+/// 콜백 테스트용 로그
+/// - Test Console에서 사용
+model CallbackTestLog {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// 요청 헤더
+  headers Json
+
+  /// 요청 바디
+  body Json
+
+  /// 서명
+  signature String?
+
+  createdAt DateTime @default(now())
+
+  @@map("callback_test_logs")
+}
+
+/// 출금 상태
+enum WithdrawalStatus {
+  REQUESTED
+  APPROVED
+  BROADCASTED
+  FAILED
+}
+
+/// ------------------------------------------------------------------
+/// Withdrawal
+/// ------------------------------------------------------------------
+/// 출금 요청 및 브로드캐스트 기록
+/// - Phase1: 구조 검증 중심
+model Withdrawal {
+  /// PK
+  id String @id @default(uuid()) @db.Uuid
+
+  /// 소속
+  partnerId String @db.Uuid
+  userId    String @db.Uuid
+  walletId  String @db.Uuid
+
+  /// 토큰
+  tokenSymbol   String
+  tokenContract String
+
+  /// 수신 주소
+  toAddress String
+
+  /// 금액
+  amount Decimal @db.Decimal(36, 18)
+
+  /// 상태
+  status WithdrawalStatus @default(REQUESTED)
+
+  /// 트랜잭션 정보
+  txHash      String? @unique
+  blockNumber BigInt?
+
+  /// 상태 시간
+  requestedAt   DateTime?
+  approvedAt    DateTime?
+  broadcastedAt DateTime?
+
+  /// 실패 사유
+  failReason String?
+
+  /// 생성 / 수정
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// 관계
+  partner Partner @relation(fields: [partnerId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+  wallet  Wallet  @relation(fields: [walletId], references: [id])
+
+  @@index([partnerId])
+  @@index([userId])
+  @@index([walletId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+/// 관리자 역할
+enum MemberRole {
+  OWNER
+  OPERATOR
+  DEVELOPER
+}
+
+/// ------------------------------------------------------------------
+/// Member
+/// ------------------------------------------------------------------
+/// 관리자 / 운영자 / 개발자 계정
+/// - Admin UI 인증 주체
+/// - JWT 로그인 대상
+model Member {
+  /// PK
+  id String @id @default(uuid()) @db.Uuid
+
+  /// 로그인 ID
+  username String @unique
+
+  /// 비밀번호 (bcrypt hash)
+  password String
+
+  /// 역할
+  role MemberRole @default(DEVELOPER)
+
+  /// 활성 여부
+  isActive Boolean @default(true)
+
+  /// 생성 / 수정
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

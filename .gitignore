@@ -1,0 +1,70 @@
+# =========================
+# Logs
+# =========================
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# =========================
+# Environment
+# =========================
+.env
+.env.*
+!.env.example
+*.local
+
+# =========================
+# Node
+# =========================
+node_modules
+.pnpm-store
+
+# =========================
+# Build
+# =========================
+dist
+dist-ssr
+coverage
+.cache
+# TypeScript build cache
+*.tsbuildinfo
+
+# =========================
+# Prisma
+# =========================
+prisma/*.db
+prisma/*.db-journal
+generated/prisma
+
+# =========================
+# OS / Editor
+# =========================
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# =========================
+# Runtime / Misc
+# =========================
+*.pid
+*.seed
+*.out
+runtime/
+
+# =========================
+# Project Docs / Private Notes
+# =========================
+docs/checklist
+velog.md
+sceret.md
+sourcetree.zip

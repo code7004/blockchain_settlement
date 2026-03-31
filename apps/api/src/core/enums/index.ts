@@ -1,0 +1,7 @@
+export enum ProcessStep {
+  TRANSFER = 'TRANSFER',
+  DETECTED = 'DETECTED',
+  CONFIRMED = 'CONFIRMED',
+  CALLBACK = 'CALLBACK',
+  SWEEP = 'SWEEP',
+}

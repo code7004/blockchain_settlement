@@ -1,0 +1,67 @@
+{
+  "name": "chain-wallet-service",
+  "private": true,
+  "packageManager": "pnpm@10.0.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "infra/*"
+  ],
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml}": [
+      "prettier --write"
+    ]
+  },
+  "scripts": {
+    "clean": "node -e \"const fs=require('fs');const path=require('path');function rm(p){if(fs.existsSync(p))fs.rmSync(p,{recursive:true,force:true});}rm('node_modules');rm('pnpm-lock.yaml');['apps','packages'].forEach(dir=>{if(fs.existsSync(dir)){fs.readdirSync(dir).forEach(name=>{const target=path.join(dir,name,'node_modules');rm(target);});}});\"",
+    "postinstall": "pnpm db:generate",
+    "reinstall": "pnpm clean && pnpm install",
+    "db:format": "pnpm --filter @packages/prisma format",
+    "db:generate": "pnpm --filter @packages/prisma generate",
+    "db:migrate": "pnpm --filter @packages/prisma migrate",
+    "dev": "pnpm -r --parallel dev",
+    "dev:api": "pnpm --filter @cws/api dev",
+    "dev:admin": "pnpm --filter @cws/admin dev",
+    "build:admin": "pnpm --filter @cws/admin build",
+    "deploy:admin": "pnpm build:admin && pnpm run --filter @cws/admin deploy",
+    "build:api": "pnpm --filter @cws/api build",
+    "start:api": "pnpm --filter @cws/api start:dev",
+    "lint": "eslint --fix apps packages",
+    "typecheck": "tsc -b apps/api apps/admin",
+    "lint:fix": "eslint --fix",
+    "sourcetree": "git archive -o sourcetree.zip HEAD",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "@prisma/client": "^6",
+    "axios": "^1.13.6",
+    "bcrypt": "^6.0.0",
+    "dayjs": "^1.11.19",
+    "lodash": "^4.17.23"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
+    "@eslint/js": "^9.39.1",
+    "@types/bcrypt": "^6.0.0",
+    "@types/lodash": "^4.17.24",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-prettier": "^5.2.2",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.4.2",
+    "rimraf": "^6.1.3",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.48.0"
+  }
+}
