@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "main": "index.ts",
+  "exports": {
+    "./client": "./client.ts"
+  },
   "scripts": {
     "format": "prisma format",
     "generate": "prisma generate",

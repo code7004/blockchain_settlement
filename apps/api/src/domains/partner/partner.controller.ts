@@ -17,7 +17,7 @@ import { PartnerService } from './partner.service';
 @ApiTags('Partner') // Swagger 그룹 (Partner API)
 @ApiSecurity('ApiKeyAuth') // 🔑 Swagger에서 x-api-key 입력 가능하도록 설정
 @UseGuards(ApiKeyGuard) // 🔐 실제 인증: API Key 검증
-@Controller('partners') // → /api/partners (globalPrefix = 'api' 기준)
+@Controller('partners')
 export class PartnerController {}
 
 /**
@@ -27,10 +27,10 @@ export class PartnerController {}
  * - Swagger: Authorization 버튼 활성화
  * - 용도: 관리자(Admin UI, 내부 운영툴)
  */
-@ApiTags('Admin - Partner') // Swagger 그룹 (Admin 영역 구분)
+@ApiTags('Portal - Partner') // Swagger 그룹 (Admin 영역 구분)
 @ApiBearerAuth() // 🔑 Swagger에서 Bearer 토큰 입력 가능
 @UseGuards(JwtAuthGuard) // 🔐 실제 인증: JWT 검증
-@Controller('admin/partners') // → /api/admin/partners
+@Controller('portal/partners')
 export class AdminPartnerController {
   constructor(private readonly service: PartnerService) {}
 

@@ -68,9 +68,11 @@ export class WalletService {
     const limit = Math.min(query.limit ?? PAGINATION_DEFAULT_LIMIT, PAGINATION_MAX_LIMIT);
     const offset = query.offset ?? 0;
 
-    const { partnerId, keyword } = query;
+    const { partnerId, keyword, status } = query;
     const where: Prisma.WalletWhereInput = {};
     if (partnerId) where.partnerId = partnerId;
+    if (status) where.status = status;
+
     if (keyword?.trim()) {
       where.OR = [{ address: { contains: keyword, mode: 'insensitive' } }];
     }

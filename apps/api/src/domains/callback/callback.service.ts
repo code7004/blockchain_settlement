@@ -3,9 +3,11 @@ import { createHmac } from 'crypto';
 
 import { CallbackRepository } from './callback.repository';
 
+import { mapPrismaError } from '@/core/errors/prisma-exception.mapper';
 import { CallbackStatus } from '@prisma/client';
 import { GetCallbackQueryDto } from './dto/get-callback.query.dto';
 import { RetryFailedAllBodyDto, RetryFailedIdsBodyDto } from './dto/retry.dto';
+import { UpdateCallbackDto } from './dto/update.callback.dto';
 
 @Injectable()
 export class CallbackService {
@@ -37,5 +39,13 @@ export class CallbackService {
 
   async retryFailedIds(body: RetryFailedIdsBodyDto) {
     return this.repo.retryFailedIds(body);
+  }
+
+  async update(id: string, dto: UpdateCallbackDto) {
+    try {
+      return await this.repo.update(id, dto);
+    } catch (error: unknown) {
+      mapPrismaError(error);
+    }
   }
 }

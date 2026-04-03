@@ -41,10 +41,10 @@ export class DepositController {
   }
 }
 
-@ApiTags('Admin - Deposits')
+@ApiTags('Portal - Deposits')
 @ApiBearerAuth() // 🔑 Swagger에서 Bearer 토큰 입력 가능
 @UseGuards(JwtAuthGuard) // 🔐 실제 인증: JWT 검증
-@Controller('admin/deposits')
+@Controller('portal/deposits')
 export class AdminDepositController {
   constructor(private readonly service: DepositService) {}
 

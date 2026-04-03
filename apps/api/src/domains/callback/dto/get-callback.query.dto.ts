@@ -1,14 +1,15 @@
 // callback/dto/get-callback.query.dto.ts
 import { ApiPartnerIdDto } from '@/core/dto/api-partner.dto';
-import { PaginationQueryDto } from '@/core/dto/pagination.query.dto';
+import { GetTableQueryDto } from '@/core/dto/get-table.query.dto';
 import { ApiPropertyOptional, IntersectionType } from '@nestjs/swagger';
 import { CallbackStatus } from '@prisma/client';
-import { IsEnum, IsOptional } from 'class-validator';
+import { IsEnum, IsOptional, IsUUID } from 'class-validator';
 
 class FilterQueryDto {
-  @ApiPropertyOptional({ description: 'depositId' })
+  @ApiPropertyOptional({ description: 'txHash' })
   @IsOptional()
-  depositId?: string;
+  @IsUUID()
+  id?: string;
 
   @ApiPropertyOptional({
     description: 'status',
@@ -19,4 +20,4 @@ class FilterQueryDto {
   status?: CallbackStatus;
 }
 
-export class GetCallbackQueryDto extends IntersectionType(ApiPartnerIdDto, FilterQueryDto, PaginationQueryDto) {}
+export class GetCallbackQueryDto extends IntersectionType(ApiPartnerIdDto, FilterQueryDto, GetTableQueryDto) {}

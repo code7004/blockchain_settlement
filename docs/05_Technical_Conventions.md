@@ -186,13 +186,13 @@ async create(data: CreateDepositInput)
 
 ```
 partner.controller.ts
-admin-partner.controller.ts
+portal-partner.controller.ts
 ```
 
 ❌ 금지
 
 ```
-partner-admin.controller.ts
+partner-portal.controller.ts
 ```
 
 ---
@@ -226,7 +226,7 @@ partner.module.ts
 
 ```
 partner-api.module.ts
-partner-admin.module.ts
+partner-portal.module.ts
 ```
 
 ✔ 역할
@@ -255,8 +255,8 @@ Controller → Service → Repository
 // API Swagger
 include: [PartnerApiModule]
 
-// Admin Swagger
-include: [PartnerAdminModule]
+// Portal Swagger
+include: [PartnerPortalModule]
 ```
 
 ✔ 기준
@@ -280,7 +280,7 @@ domains/
     partner.repository.ts
 
     partner-api.module.ts
-    partner-admin.module.ts
+    partner-portal.module.ts
 ```
 
 ---
@@ -293,7 +293,7 @@ domains/
 예:
 
 - PartnerController (API)
-- AdminPartnerController (Admin)
+- PortalPartnerController (Portal)
 
 ✔ 필수 조건
 
@@ -310,13 +310,13 @@ domains/
 
 1. import
 2. PartnerController (API)
-3. AdminPartnerController (Admin)
+3. PortalPartnerController (Portal)
 
 각 Controller 사이에 반드시 구분 주석 추가
 
 ```
 // --- API Controller ---
-// --- Admin Controller ---
+// --- Portal Controller ---
 ```
 
 ---
@@ -326,7 +326,7 @@ domains/
 다음 중 하나라도 만족하면 파일 분리:
 
 - Controller 길이 300줄 이상
-- API / Admin 기능 차이가 커짐
+- API / Portal 기능 차이가 커짐
 - DTO가 서로 달라짐
 - endpoint 10개 이상
 - 유지보수 시 스크롤이 불편해짐
@@ -337,5 +337,5 @@ domains/
 
 ```
 도메인은 하나로 유지하고,
-컨텍스트(API / Admin)는 진입점에서만 분리한다
+컨텍스트(API / Portal)는 진입점에서만 분리한다
 ```

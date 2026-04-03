@@ -29,14 +29,6 @@ Transfer → DETECTED → CONFIRMED → CALLBACK → SWEEP
 
 # 1. Getting Started
 
-## Base URL
-
-```
-https://d1172pf13k2mli.cloudfront.net
-```
-
----
-
 ## Supported Network
 
 - Tron (TRC20 / USDT)
@@ -58,7 +50,7 @@ Authorization: Bearer {API_KEY}
 ## Request
 
 ```
-POST /api/users
+POST /users
 ```
 
 ## Request Body
@@ -193,7 +185,7 @@ X-Signature: {HMAC_SIGNATURE}
 
 ## Callback 처리 (Node.js 예제)
 
-```
+```js
 const express = require('express');
 const crypto = require('crypto');
 
@@ -206,10 +198,7 @@ app.post('/callback', (req, res) => {
   const signature = req.headers['x-signature'];
   const rawBody = JSON.stringify(req.body);
 
-  const expected = crypto
-    .createHmac('sha256', CALLBACK_SECRET)
-    .update(rawBody)
-    .digest('hex');
+  const expected = crypto.createHmac('sha256', CALLBACK_SECRET).update(rawBody).digest('hex');
 
   if (signature !== expected) {
     return res.status(401).send('Invalid signature');
@@ -303,7 +292,7 @@ PENDING → SUCCESS → FAILED
 ## Request
 
 ```
-GET /api/deposits
+GET /deposits
 ```
 
 ## Query
@@ -343,7 +332,7 @@ externalUserId=user_123
 ## Request
 
 ```
-POST /api/wallets
+POST /wallets
 ```
 
 ## Body
@@ -393,7 +382,7 @@ POST /api/wallets
 ```js
 const axios = require('axios');
 
-const API_BASE = 'https://d1172pf13k2mli.cloudfront.net';
+const API_BASE = 'API_BASE_URL';
 const API_KEY = 'YOUR_API_KEY';
 
 const api = axios.create({
@@ -406,7 +395,7 @@ const api = axios.create({
 
 // 1. User 생성
 async function createUser() {
-  const res = await api.post('/api/users', {
+  const res = await api.post('/users', {
     externalUserId: 'user_123',
   });
 
@@ -421,7 +410,7 @@ async function issueDepositAddress() {
 
 // 3. Deposit 조회
 async function getDeposits() {
-  const res = await api.get('/api/deposits', {
+  const res = await api.get('/deposits', {
     params: {
       externalUserId: 'user_123',
       status: 'CONFIRMED',

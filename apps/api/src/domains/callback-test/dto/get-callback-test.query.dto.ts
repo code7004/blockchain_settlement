@@ -1,3 +1,3 @@
-import { PaginationQueryDto } from '@/core/dto/pagination.query.dto';
+import { GetTableQueryDto } from '@/core/dto/get-table.query.dto';
 
-export class GetCallbackTestQueryDto extends PaginationQueryDto {}
+export class GetCallbackTestQueryDto extends GetTableQueryDto {}

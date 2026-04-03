@@ -6,10 +6,10 @@ import { AdminBlockchainService } from './blockchain.service';
 import { TestTransferDto } from './dto/test-transfer.dto';
 import { TestWalletBalanceDto } from './dto/test-wallet-balance.dto';
 
-@ApiTags('Admin - Blockchain')
+@ApiTags('Portal - Blockchain')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller('admin/blockchain')
+@Controller('portal/blockchain')
 export class AdminBlockchainController {
   constructor(
     private readonly service: AdminBlockchainService,

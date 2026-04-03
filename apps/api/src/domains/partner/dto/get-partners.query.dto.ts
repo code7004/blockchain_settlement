@@ -1,8 +1,8 @@
-import { PaginationQueryDto } from '@/core/dto/pagination.query.dto';
+import { GetTableQueryDto } from '@/core/dto/get-table.query.dto';
 import { ApiPropertyOptional, IntersectionType } from '@nestjs/swagger';
 import { IsOptional, IsUUID } from 'class-validator';
 
-class FilterDto extends PaginationQueryDto {
+class FilterDto extends GetTableQueryDto {
   @ApiPropertyOptional({
     description: 'member id filter',
   })
@@ -11,4 +11,4 @@ class FilterDto extends PaginationQueryDto {
   memberId?: string;
 }
 
-export class GetPartnersQueryDto extends IntersectionType(FilterDto, PaginationQueryDto) {}
+export class GetPartnersQueryDto extends IntersectionType(FilterDto, GetTableQueryDto) {}

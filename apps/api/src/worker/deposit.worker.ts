@@ -138,12 +138,28 @@ export class DepositWorker implements OnModuleInit, OnModuleDestroy {
 
           if (!data.startsWith('a9059cbb')) continue;
 
+          if (!data || data.length < 136) {
+            this.logger.warn(`invalid data length tx=${tx.txID}`);
+            continue;
+          }
+
           const toHex = data.slice(8 + 24, 8 + 64);
           const amountHex = data.slice(8 + 64, 8 + 128);
 
-          const toAddress = this.tronService.hexToBase58(`41${toHex}`);
+          if (!amountHex) {
+            this.logger.warn(`empty amountHex tx=${tx.txID}`);
+            continue;
+          }
 
-          const amount = BigInt(`0x${amountHex}`).toString();
+          let amount: string;
+          try {
+            amount = BigInt(`0x${amountHex}`).toString();
+          } catch {
+            this.logger.warn(`invalid amountHex tx=${tx.txID}`);
+            continue;
+          }
+
+          const toAddress = this.tronService.hexToBase58(`41${toHex}`);
 
           await this.depositService.handleDetectedTransfer({ txHash: tx.txID, toAddress, fromAddress: this.tronService.hexToBase58(value.owner_address), amount, blockNumber: block });
 

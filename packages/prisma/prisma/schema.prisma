@@ -24,7 +24,7 @@ datasource db {
 model HealthPing {
   id        String   @id @default(uuid()) @db.Uuid
   message   String
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 }
 
 /// ------------------------------------------------------------------
@@ -53,7 +53,7 @@ model Partner {
   apiKeyHash String
 
   /// API Key 생성 시간
-  apiKeyCreatedAt DateTime
+  apiKeyCreatedAt DateTime @db.Timestamptz(3)
 
   /// 관리자(Member) 참조
   memberId String @db.Uuid
@@ -62,10 +62,10 @@ model Partner {
   isActive Boolean @default(true)
 
   /// 생성 시간
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   /// 수정 시간
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   /// 관계
   users        User[]
@@ -97,10 +97,10 @@ model User {
   isActive Boolean @default(true)
 
   /// 생성 시간
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   /// 수정 시간
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   /// 관계
   wallets     Wallet[]
@@ -145,8 +145,8 @@ model Wallet {
   status WalletStatus @default(ACTIVE)
 
   /// 생성 / 수정
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   /// 관계
   partner     Partner      @relation(fields: [partnerId], references: [id])
@@ -202,13 +202,13 @@ model Deposit {
   status DepositStatus
 
   /// 감지 시간
-  detectedAt DateTime
+  detectedAt DateTime @db.Timestamptz(3)
 
   /// 확정 시간
-  confirmedAt DateTime?
+  confirmedAt DateTime? @db.Timestamptz(3)
 
   /// 생성 시간
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   /// 관계
   partner      Partner       @relation(fields: [partnerId], references: [id])
@@ -266,11 +266,11 @@ model CallbackLog {
   status CallbackStatus
 
   /// 마지막 시도 시간
-  lastAttemptAt DateTime?
+  lastAttemptAt DateTime? @db.Timestamptz(3)
 
   /// 생성 / 수정
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   /// 관계
   partner Partner @relation(fields: [partnerId], references: [id])
@@ -302,7 +302,7 @@ model CallbackTestLog {
   /// 서명
   signature String?
 
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@map("callback_test_logs")
 }
@@ -347,16 +347,16 @@ model Withdrawal {
   blockNumber BigInt?
 
   /// 상태 시간
-  requestedAt   DateTime?
-  approvedAt    DateTime?
-  broadcastedAt DateTime?
+  requestedAt   DateTime? @db.Timestamptz(3)
+  approvedAt    DateTime? @db.Timestamptz(3)
+  broadcastedAt DateTime? @db.Timestamptz(3)
 
   /// 실패 사유
   failReason String?
 
   /// 생성 / 수정
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   /// 관계
   partner Partner @relation(fields: [partnerId], references: [id])
@@ -400,6 +400,6 @@ model Member {
   isActive Boolean @default(true)
 
   /// 생성 / 수정
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 }

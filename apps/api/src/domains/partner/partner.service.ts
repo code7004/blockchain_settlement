@@ -5,6 +5,7 @@ import { PartnerRepository } from '@/domains/partner/partner.repository';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { DeleteByIdsPartnersDto } from './dto/delete-byids-partner.dto';
 
 @Injectable()
 export class PartnerService {
@@ -58,5 +59,15 @@ export class PartnerService {
    */
   async rotate(partnerId: string) {
     return await this.createApiKey(partnerId);
+  }
+
+  async deleteUsers(dto: DeleteByIdsPartnersDto) {
+    const members = await this.repo.findByIds(dto.ids);
+
+    if (members.length !== dto.ids.length) {
+      throw new NotFoundException('Some members not found');
+    }
+
+    return this.repo.updateMany(dto.ids, { isActive: false });
   }
 }

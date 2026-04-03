@@ -46,7 +46,7 @@ export class ExternalAuthModule {}
 
         return {
           secret,
-          signOptions: { expiresIn: isDev ? '2h' : '1h' },
+          signOptions: { expiresIn: isDev ? '4h' : '2h' },
         };
       },
     }),

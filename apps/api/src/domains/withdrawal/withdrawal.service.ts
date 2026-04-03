@@ -7,13 +7,13 @@ import { WithdrawalRepository } from './withdrawal.repository';
 
 @Injectable()
 export class WithdrawalService {
-  constructor(private readonly withdrawalRepository: WithdrawalRepository) {}
+  constructor(private readonly repo: WithdrawalRepository) {}
 
   async create(dto: CreateWithdrawalDto) {
     const now = new Date();
 
     try {
-      return await this.withdrawalRepository.create({
+      return await this.repo.create({
         partnerId: dto.partnerId,
         userId: dto.userId,
         walletId: dto.walletId,
@@ -43,12 +43,12 @@ export class WithdrawalService {
     }
 
     const [data, total] = await Promise.all([
-      this.withdrawalRepository.findMany({
+      this.repo.findMany({
         where,
         skip: query.offset,
         take: query.limit,
       }),
-      this.withdrawalRepository.count(where),
+      this.repo.count(where),
     ]);
 
     return {

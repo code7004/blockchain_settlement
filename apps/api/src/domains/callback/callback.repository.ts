@@ -10,6 +10,7 @@ import { Injectable } from '@nestjs/common';
 import { CallbackStatus, Prisma } from '@prisma/client';
 import { GetCallbackQueryDto } from './dto/get-callback.query.dto';
 import { RetryFailedAllBodyDto, RetryFailedIdsBodyDto } from './dto/retry.dto';
+import { UpdateCallbackDto } from './dto/update.callback.dto';
 
 @Injectable()
 export class CallbackRepository {
@@ -36,6 +37,10 @@ export class CallbackRepository {
     }
   }
 
+  async update(id: string, data: UpdateCallbackDto) {
+    return await this.prisma.callbackLog.update({ where: { id }, data });
+  }
+
   async updateAttempt(id: string, data: { attemptCount: number; requestSignature?: string; status?: CallbackStatus; lastStatusCode?: number; lastAttemptAt?: Date }) {
     try {
       return await this.prisma.callbackLog.update({ where: { id }, data });
@@ -49,7 +54,7 @@ export class CallbackRepository {
     const offset = dto.offset ?? 0;
 
     const where: Prisma.CallbackLogWhereInput = { partnerId: dto.partnerId };
-    if (dto.depositId) where.depositId = dto.depositId;
+    if (dto.id) where.id = dto.id;
     if (dto.status) where.status = dto.status;
 
     const [data, total] = await this.prisma.$transaction([
@@ -64,6 +69,10 @@ export class CallbackRepository {
     return { data, total, limit, offset };
   }
 
+  /**
+   * 실패 목록만 리턴하면 최대 100개 고정
+   * @returns
+   */
   async findAllUnSucces() {
     const limit = 100;
 

@@ -32,10 +32,10 @@ export class HealthController {
   }
 }
 
-@ApiTags('Admin - Health')
+@ApiTags('Portal - Health')
 // @ApiBearerAuth() // 🔑 Swagger에서 Bearer 토큰 입력 가능
 // @UseGuards(JwtAuthGuard) // 🔐 실제 인증: JWT 검증
-@Controller('admin/health')
+@Controller('portal/health')
 export class AdminHealthController {
   constructor(private readonly prisma: PrismaService) {}
 

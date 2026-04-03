@@ -1,8 +1,9 @@
+import { PAGINATION_DEFAULT_LIMIT, PAGINATION_MAX_LIMIT } from '@/core/constants';
 import { PrismaService } from '@/infra/prisma/prisma.service';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, User } from '@prisma/client';
 import { isUUID } from 'class-validator';
-import { AdminGetUsersQueryDto } from './dto/get-users.query.dto';
+import { AdminGetUsersQueryDto } from './dto/get-user.query.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
@@ -14,11 +15,12 @@ export class UserRepository {
   }
 
   async findAll(query: AdminGetUsersQueryDto) {
-    const limit = Math.min(query.limit ?? 20, 100);
+    const limit = Math.min(query.limit ?? PAGINATION_DEFAULT_LIMIT, PAGINATION_MAX_LIMIT);
     const offset = query.offset ?? 0;
 
-    const { partnerId, externalUserId, keyword } = query;
+    const { partnerId, externalUserId, keyword, isActive } = query;
     const where: Prisma.UserWhereInput = {};
+    if (isActive != undefined) where.isActive = isActive;
     if (partnerId) where.partnerId = partnerId;
     if (externalUserId) where.externalUserId = externalUserId;
     if (keyword?.trim()) {

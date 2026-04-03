@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
 
-export class VerifyPwdMemberDto {
+export class VerifyMemberPasswordDto {
   @ApiProperty({ description: '멤버 ID' })
   @IsString()
   @IsUUID()
@@ -17,7 +17,7 @@ export class VerifyPwdMemberDto {
   password!: string;
 }
 
-export class ChangePwdMemberDto {
+export class ChangeMemberMemberPasswordDto {
   @ApiProperty({ description: '멤버 ID' })
   @IsString()
   @IsUUID()

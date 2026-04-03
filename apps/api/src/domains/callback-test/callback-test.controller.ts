@@ -5,7 +5,7 @@ import { CallbackTestService } from './callback-test.service';
 import { GetCallbackTestQueryDto } from './dto/get-callback-test.query.dto';
 
 @ApiTags('Callbacks-Test')
-@Controller('admin/callbacks-test')
+@Controller('portal/callbacks-test')
 export class CallbackTestController {
   constructor(private readonly service: CallbackTestService) {}
 

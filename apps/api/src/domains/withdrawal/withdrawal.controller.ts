@@ -12,10 +12,10 @@ import { WithdrawalService } from './withdrawal.service';
 @Controller('withdrawals')
 export class WithdrawalController {}
 
-@ApiTags('Admin - Withdrawals')
+@ApiTags('Portal - Withdrawals')
 @ApiBearerAuth() // 🔑 Swagger에서 Bearer 토큰 입력 가능
 @UseGuards(JwtAuthGuard) // 🔐 실제 인증: JWT 검증
-@Controller('withdrawals')
+@Controller('/partner/withdrawals')
 export class AdminWithdrawalController {
   constructor(private readonly withdrawalService: WithdrawalService) {}
 

@@ -1,10 +1,10 @@
 import { mapPrismaError } from '@/core/errors/prisma-exception.mapper';
 import { PrismaService } from '@/infra/prisma/prisma.service';
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { User } from '@prisma/client';
+import { User, WalletStatus } from '@prisma/client';
 import { WalletService } from '../wallet/wallet.service';
 import { CreateUserDto } from './dto/create-user.dto';
-import { AdminGetUsersQueryDto } from './dto/get-users.query.dto';
+import { AdminGetUsersQueryDto } from './dto/get-user.query.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserRepository } from './user.repository';
 
@@ -55,7 +55,18 @@ export class UserService {
   }
 
   async update(id: string, dto: UpdateUserDto): Promise<User> {
-    return this.repo.update(id, dto);
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({ where: { id }, data: dto });
+
+      if (dto.isActive !== undefined) {
+        await tx.wallet.updateMany({
+          where: { userId: id },
+          data: { status: dto.isActive ? WalletStatus.ACTIVE : WalletStatus.SUSPENDED },
+        });
+      }
+
+      return user;
+    });
   }
 
   //#############################################################################

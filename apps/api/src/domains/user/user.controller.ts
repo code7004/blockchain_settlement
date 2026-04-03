@@ -3,8 +3,8 @@ import { ApiBearerAuth, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagg
 import { PartnerId } from '../auth/decorators/partner-id.decorator';
 import { ApiKeyGuard } from '../auth/guards/api-key.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CreateUserDto, PartnerCretaUserDto } from './dto/create-user.dto';
-import { AdminGetUsersQueryDto, ApiGetUsersQueryDto } from './dto/get-users.query.dto';
+import { CreateUserDto, CretaUserDto } from './dto/create-user.dto';
+import { AdminGetUsersQueryDto, ApiGetUsersQueryDto } from './dto/get-user.query.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserService } from './user.service';
 
@@ -31,7 +31,7 @@ export class UserController {
 - Wallet address는 서버에서 자동 발급됩니다.
     `,
   })
-  async create(@Body() dto: PartnerCretaUserDto, @PartnerId() partnerId: string) {
+  async create(@Body() dto: CretaUserDto, @PartnerId() partnerId: string) {
     return this.userService.create({ ...dto, partnerId });
   }
 
@@ -73,10 +73,10 @@ Partner에 속한 User 목록을 조회합니다.
   }
 }
 
-@ApiTags('Admin - User')
+@ApiTags('Portal - User')
 @ApiBearerAuth() // 🔑 Swagger에서 Bearer 토큰 입력 가능
 @UseGuards(JwtAuthGuard) // 🔐 실제 인증: JWT 검증
-@Controller('admin/users')
+@Controller('portal/users')
 export class AdminUserController {
   constructor(private readonly userService: UserService) {}
 

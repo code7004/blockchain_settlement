@@ -45,9 +45,9 @@ export default [
     },
   },
 
-  /* ---------------- ADMIN ---------------- */
+  /* ---------------- PORTAL ---------------- */
   {
-    files: ['apps/admin/**/*.{ts,tsx}'],
+    files: ['apps/portal/**/*.{ts,tsx}'],
     ignores: ['**/*.config.ts'],
 
     languageOptions: {

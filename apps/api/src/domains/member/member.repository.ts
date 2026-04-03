@@ -1,8 +1,9 @@
 import { PAGINATION_DEFAULT_LIMIT, PAGINATION_MAX_LIMIT } from '@/core/constants';
 import { PrismaService } from '@/infra/prisma/prisma.service';
 import { Injectable } from '@nestjs/common';
+import _ from 'lodash';
 import { CreateMemberDto } from './dto/create-member.dto';
-import { GetMemberDto } from './dto/get-member.dto';
+import { GetMemberQueryDto } from './dto/get-member-query.dto';
 
 @Injectable()
 export class MemberRepository {
@@ -18,7 +19,7 @@ export class MemberRepository {
     });
   }
 
-  async findAll(query: GetMemberDto) {
+  async findAll(query: GetMemberQueryDto) {
     const limit = Math.min(query.limit ?? PAGINATION_DEFAULT_LIMIT, PAGINATION_MAX_LIMIT);
     const offset = query.offset ?? 0;
 
@@ -36,10 +37,7 @@ export class MemberRepository {
   }
 
   async update(id: string, data: { isActive?: boolean; password?: string }) {
-    return this.prisma.member.update({
-      where: { id },
-      data,
-    });
+    return _.omit(await this.prisma.member.update({ where: { id }, data }), ['password']);
   }
 
   async findByIds(ids: string[]) {

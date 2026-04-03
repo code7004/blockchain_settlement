@@ -38,15 +38,15 @@ async function bootstrap() {
   app.useGlobalInterceptors(new HttpLoggingInterceptor(logger));
 
   // 2. cross origin
-  const allowedOrigins = ['http://localhost:5173', 'http://localhost:3000', 'https://d17qkco5bazjc3.cloudfront.net', 'https://d18zaroav2gl24.cloudfront.net/'];
-
   app.enableCors({
-    origin: (origin: string, callback: (error: Error | null, check?: boolean) => void) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
+    origin: (origin: string, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin) return callback(null, true);
+
+      if (origin.includes('localhost') || origin.endsWith('.balletpay.net') || origin === 'https://balletpay.net') {
+        return callback(null, true);
       }
+
+      return callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
   });
@@ -54,11 +54,11 @@ async function bootstrap() {
   // 3. validation
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }));
   app.useGlobalFilters(new ApiExceptionFilter());
-  app.setGlobalPrefix('api', { exclude: ['/docs/(.*)'] });
+  // app.setGlobalPrefix('api', { exclude: ['/docs/(.*)'] });
 
   // 4. Swagger
   const apiConfig = new DocumentBuilder().setTitle('Chain Wallet API').setDescription(apiDescription).setVersion('1.0.0').addApiKey({ type: 'apiKey', name: 'x-api-key', in: 'header' }, 'ApiKeyAuth').build();
-  const adminConfig = new DocumentBuilder().setTitle('Chain Wallet Admin API').setDescription('Admin API').setVersion('1.0.0').addBearerAuth().build();
+  const portalConfig = new DocumentBuilder().setTitle('Chain Wallet Portal API').setDescription('Dev portal API').setVersion('1.0.0').addBearerAuth().build();
 
   // API Swagger
   const apiDocument = SwaggerModule.createDocument(app, apiConfig, { include: ApiModules });
@@ -81,10 +81,10 @@ async function bootstrap() {
       : undefined,
   });
 
-  // Admin Swagger
-  const adminDocument = SwaggerModule.createDocument(app, adminConfig, { include: AdminModules });
+  // Portal Swagger
+  const portalDocument = SwaggerModule.createDocument(app, portalConfig, { include: AdminModules });
 
-  SwaggerModule.setup('/docs/admin', app, adminDocument);
+  SwaggerModule.setup('/docs/partner', app, portalDocument);
   await app.listen(process.env.PORT ?? 3000);
 }
 void bootstrap();

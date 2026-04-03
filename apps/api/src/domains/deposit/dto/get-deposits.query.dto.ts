@@ -1,5 +1,6 @@
+// get-deposits.query.dto.ts
 import { ApiPartnerIdDto } from '@/core/dto/api-partner.dto';
-import { PaginationQueryDto } from '@/core/dto/pagination.query.dto';
+import { GetTableQueryDto } from '@/core/dto/get-table.query.dto';
 import { ApiPropertyOptional, IntersectionType } from '@nestjs/swagger';
 import { IsOptional } from 'class-validator';
 
@@ -9,5 +10,5 @@ class FilterQueryDto {
   txHash?: string;
 }
 
-export class ApiGetDepositQueryDto extends IntersectionType(FilterQueryDto, PaginationQueryDto) {}
-export class GetDepositsQueryDto extends IntersectionType(ApiPartnerIdDto, FilterQueryDto, PaginationQueryDto) {}
+export class ApiGetDepositQueryDto extends IntersectionType(FilterQueryDto, GetTableQueryDto) {}
+export class GetDepositsQueryDto extends IntersectionType(ApiPartnerIdDto, FilterQueryDto, GetTableQueryDto) {}

@@ -11,10 +11,10 @@ import { Body, Controller, Patch, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { AuthLoginDto } from './dto/auth-login.dto';
-import { ChangePwdMemberDto, VerifyPwdMemberDto } from './dto/change-pwd-member.dto';
+import { ChangeMemberMemberPasswordDto, VerifyMemberPasswordDto } from './dto/change-pwd-member.dto';
 
-@ApiTags('Admin - Member') // Swagger 그룹 (Admin 영역 구분)
-@Controller('admin/auth')
+@ApiTags('Portal - Member') // Swagger 그룹 (Admin 영역 구분)
+@Controller('portal/auth')
 export class AdminAuthController {
   constructor(private readonly service: AuthService) {}
 
@@ -30,12 +30,12 @@ export class AdminAuthController {
   }
 
   @Post('verify-pwd')
-  async verifyPwd(@Body() dto: VerifyPwdMemberDto) {
+  async verifyPwd(@Body() dto: VerifyMemberPasswordDto) {
     return this.service.verifyPwd(dto);
   }
 
   @Patch('change-pwd')
-  async changePwd(@Body() dto: ChangePwdMemberDto) {
+  async changePwd(@Body() dto: ChangeMemberMemberPasswordDto) {
     return this.service.changePwd(dto);
   }
 }

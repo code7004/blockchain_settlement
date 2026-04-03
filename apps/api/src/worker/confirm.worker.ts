@@ -62,14 +62,16 @@ export class ConfirmWorker implements OnModuleInit, OnModuleDestroy {
         status: DepositStatus.DETECTED,
         blockNumber: { lte: latestBlock - CONFIRMATION_COUNT },
       },
-      include: { partner: true, user: true },
+      include: { partner: true, user: true, wallet: true },
     });
 
     for (const deposit of deposits) {
       try {
+        const confirmedAt = new Date();
+
         const result = await this.prisma.deposit.updateMany({
           where: { id: deposit.id, status: DepositStatus.DETECTED },
-          data: { status: DepositStatus.CONFIRMED, confirmedAt: new Date() },
+          data: { status: DepositStatus.CONFIRMED, confirmedAt },
         });
 
         if (result.count === 0) continue;
@@ -77,19 +79,43 @@ export class ConfirmWorker implements OnModuleInit, OnModuleDestroy {
         this.logger.log(`Deposit confirmed: ${deposit.id}`);
 
         // callback job 생성
-        await this.prisma.callbackLog.create({
+        const callback = await this.prisma.callbackLog.create({
           data: {
             partnerId: deposit.partnerId,
             depositId: deposit.id,
             txHash: deposit.txHash,
             eventType: CALLBACK_EVENT_TYPE.CONFIRMED,
             callbackUrl: deposit.partner.callbackUrl,
-            requestBody: JSON.stringify({ txHash: deposit.txHash, amount: deposit.amount }),
+            requestBody: '', // 일단 비움
             requestSignature: '',
             attemptCount: 0,
             maxAttempts: 3,
             status: CallbackStatus.PENDING,
           },
+        });
+
+        const requestBody = JSON.stringify({
+          event: CALLBACK_EVENT_TYPE.CONFIRMED,
+          to: deposit.toAddress,
+          from: deposit.fromAddress,
+          depositId: deposit.id,
+          externalUserId: deposit.user.externalUserId,
+          txHash: deposit.txHash,
+          amount: deposit.amount,
+          tokenSymbol: deposit.tokenSymbol,
+
+          confirmedAt,
+          detectedAt: deposit.detectedAt,
+
+          confirmations: CONFIRMATION_COUNT,
+          blockNumber: deposit.blockNumber,
+          contractAddress: deposit.tokenContract,
+
+          callbackId: callback.id,
+        });
+        await this.prisma.callbackLog.update({
+          where: { id: callback.id },
+          data: { requestBody },
         });
       } catch (error: unknown) {
         mapPrismaError(error);

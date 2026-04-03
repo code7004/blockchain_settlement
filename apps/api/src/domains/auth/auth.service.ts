@@ -16,7 +16,7 @@ import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/co
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { AuthRepository } from './auth.repository';
-import { ChangePwdMemberDto, VerifyPwdMemberDto } from './dto/change-pwd-member.dto';
+import { ChangeMemberMemberPasswordDto, VerifyMemberPasswordDto } from './dto/change-pwd-member.dto';
 
 /**
  * AuthService (개선 버전)
@@ -58,7 +58,7 @@ export class AuthService {
     };
   }
 
-  async verifyPwd(dto: VerifyPwdMemberDto) {
+  async verifyPwd(dto: VerifyMemberPasswordDto) {
     const member = await this.repo.findById(dto.id);
     if (!member || !member.id) throw new NotFoundException('member not found');
 
@@ -69,7 +69,7 @@ export class AuthService {
     return isValid;
   }
 
-  async changePwd(dto: ChangePwdMemberDto) {
+  async changePwd(dto: ChangeMemberMemberPasswordDto) {
     void this.verifyPwd({ id: dto.id, password: dto.oldPassword });
 
     const hashed = await bcrypt.hash(dto.newPassword, 10);

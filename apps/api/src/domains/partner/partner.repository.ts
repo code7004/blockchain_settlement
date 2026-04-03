@@ -81,4 +81,21 @@ export class PartnerRepository {
   async updateApiKeyHash(partnerId: string, apiKeyHash: string, apiKeyPrefix: string) {
     return this.prisma.partner.update({ where: { id: partnerId }, data: { apiKeyHash, apiKeyPrefix } });
   }
+
+  async findByIds(ids: string[]) {
+    return this.prisma.partner.findMany({
+      where: {
+        id: { in: ids },
+      },
+    });
+  }
+
+  async updateMany(ids: string[], data: { isActive?: boolean }) {
+    return this.prisma.partner.updateMany({
+      where: {
+        id: { in: ids },
+      },
+      data,
+    });
+  }
 }

@@ -59,7 +59,6 @@ export class CallbackWorker implements OnModuleInit, OnModuleDestroy {
       try {
         // signature 생성 (HMAC-SHA256)
         const signature = this.service.generateSignature(job.requestBody, job.partner.callbackSecret);
-
         const response = await axios.post(job.callbackUrl, JSON.parse(job.requestBody), {
           headers: {
             'Content-Type': 'application/json',

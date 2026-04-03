@@ -19,7 +19,7 @@
 
 ### 목적
 
-- Admin에서 직접 체인 테스트 수행
+- Portal에서 직접 체인 테스트 수행
 - 입금 → 확정 → 콜백 → 스윕 전체 흐름 검증
 
 ---
@@ -36,7 +36,7 @@
 
 ### 동작 구조
 
-Admin → API → TronService.transfer()
+Portal → API → TronService.transfer()
 
 ※ privateKey 보호를 위해 서버 proxy 방식 사용
 
@@ -174,7 +174,7 @@ HMAC-SHA256 검증 코드
 
 ---
 
-## 5. Public Admin UI (Operator / Developer)
+## 5. Public Portal UI (Operator / Developer)
 
 ### 목적
 
@@ -223,7 +223,7 @@ role 기반 메뉴 필터
 
 ---
 
-## 6. Admin UX 개선
+## 6. Portal UX 개선
 
 ### 추가 기능
 

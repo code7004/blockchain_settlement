@@ -71,6 +71,8 @@ export class SweepService {
         },
       },
       distinct: ['walletId', 'tokenContract'],
+      take: 100,
+      orderBy: { id: 'asc' },
       select: {
         walletId: true,
         tokenSymbol: true,
