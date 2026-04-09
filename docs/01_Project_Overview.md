@@ -78,6 +78,7 @@
 - TypeScript
 - TailwindCSS v4
 - Axios
+- React Query & UrlQuery
 
 ### 3-3. Backend (API)
 
