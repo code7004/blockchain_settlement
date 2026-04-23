@@ -6,43 +6,43 @@ import { usePartners } from '@/hooks';
 import { defaultBodyRenderer } from '@/lib/defaultBodyRenderer';
 import { useQuery } from '@tanstack/react-query';
 import _ from 'lodash';
-import { useEffect, useState } from 'react';
-import { CallbackStatus, apiGetCallbacks, apiPatchCallback, apiPostCallbackRetryAll, apiPostCallbackRetryIds, type CallbackDto, type CallbackGetDto, type CallbackPatchDto } from './callback.api';
+import { useState } from 'react';
+import { CallbackStatus, apiGetCallbacks, apiPatchCallback, apiPostCallbackRetryAll, apiPostCallbackRetryIds, type CallbackDto, type CallbackPatchDto } from './callback.api';
 
 const ITEMSIZE = 50;
-const Status = [CallbackStatus.PENDING, CallbackStatus.FAILED, CallbackStatus.SUCCESS];
+const Status = Object.values(CallbackStatus);
 
 export default function CallbackList({ tableOptions, pageRole }: { pageRole: SYS_PAGE_ROLE; tableOptions: ITxCoolTableOption }) {
-  const [filter, _filter] = useStateForObject<{ pageIdx: number } & CallbackGetDto>({ pageIdx: 1, id: '', partnerId: '', status: undefined });
-  const { data: partners } = usePartners(pageRole);
+  const [filter, _filter] = useStateForObject({ pageIdx: 1, id: '', status: undefined as CallbackStatus | undefined });
+  const { partnerId, _partnerId, partners } = usePartners(pageRole);
 
   const [selections, _selections] = useState<CallbackDto[]>();
-
-  useEffect(() => void (partners?.[0]?.value && _filter({ partnerId: partners[0].value })), [partners, _filter]);
 
   const { data, refetch, isLoading } = useQuery({
     queryKey: ['wallets', filter],
     queryFn: async () => {
-      if (!filter.partnerId) return { data: [], total: 0 };
-      const res = await apiGetCallbacks({ offset: (filter.pageIdx - 1) * ITEMSIZE, limit: ITEMSIZE, ..._.pick(filter, ['partnerId', 'status', 'id']) });
+      if (!partnerId) return { data: [], total: 0 };
+      const res = await apiGetCallbacks({ offset: (filter.pageIdx - 1) * ITEMSIZE, limit: ITEMSIZE, partnerId, ..._.pick(filter, ['status', 'id']) });
       return { data: (res.data?.map((e, idx) => ({ IDX: (filter.pageIdx - 1) * ITEMSIZE + idx + 1, ...e })) as CallbackDto[]) ?? [], total: res.total };
     },
-    enabled: !!filter.partnerId, // block condition
+    enabled: !!partnerId, // block condition
     staleTime: 1000 * 10,
     refetchInterval: 10000,
   });
 
   async function hdCallbackRetryIds() {
+    if (!partnerId) return;
     if (!selections || selections.length < 1) return alert('선택 콜백이 없습니다.');
 
     if (!confirm('선택 콜백을 재시도 하겠습니까?\n상태가 FAILED 인경우 재시도 합니다.')) return;
-    await apiPostCallbackRetryIds({ partnerId: filter.partnerId, ids: selections.map((e) => e.id) });
+    await apiPostCallbackRetryIds({ partnerId, ids: selections.map((e) => e.id) });
     await refetch();
   }
 
   async function hdCallbackRetryAll() {
+    if (!partnerId) return;
     if (!confirm('실패된 콜백 전체를 재시도 하겠습니까?')) return;
-    await apiPostCallbackRetryAll({ partnerId: filter.partnerId });
+    await apiPostCallbackRetryAll({ partnerId });
     await refetch();
   }
 
@@ -60,8 +60,8 @@ export default function CallbackList({ tableOptions, pageRole }: { pageRole: SYS
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex items-end justify-between gap-3 mb-4">
-        <TxFieldDropdown caption="partner" value={filter.partnerId} data={partners} onChangeText={(t) => _filter({ partnerId: t, pageIdx: 1 })} />
-        <TxFieldDropdown caption="status" data={Status} onChangeValue={(t) => _filter({ status: t.value as CallbackStatus, pageIdx: 1 })} addNoChoiceItem />
+        <TxFieldDropdown caption="partner" value={partnerId} data={partners} onChangeText={(t) => void (_partnerId(t), _filter({ pageIdx: 1 }))} />
+        <TxFieldDropdown caption="status" data={Status} onChangeValue={(t) => _filter({ status: t.value, pageIdx: 1 })} addNoChoiceItem />
         <TxSearchInput className="flex-1" onSubmitText={(t) => _filter({ id: t, pageIdx: 1 })} placeholder="Search id" onClear={(t) => _filter({ id: t, pageIdx: 1 })} />
         <TxButton label="선택 재시도" onClick={hdCallbackRetryIds} />
         <TxButton disabled={status != CallbackStatus.FAILED} label="전체 재시도" onClick={hdCallbackRetryAll} />

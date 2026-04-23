@@ -1,16 +1,23 @@
 import React, { useEffect, useMemo } from 'react';
-import type { ITxDropdownData, ITxDropdownItem, ITxDropdownProps, TxDropdownValue } from '.';
+import type { ITxDropdownData, ITxDropdownItem, ITxDropdownProps, InferDropdownValue } from '.';
 import { TxDropdownBase } from './TxDropdownBase';
 
 // ✅ single normalize
-const normalizeSingle = (data: ITxDropdownData | undefined, value: TxDropdownValue, addNoChoiceItem?: boolean): ITxDropdownItem[] => {
+const normalizeSingle = <TData extends ITxDropdownData>(data: TData | undefined, value: InferDropdownValue<TData> | undefined, addNoChoiceItem?: boolean): ITxDropdownItem<InferDropdownValue<TData> | undefined>[] => {
   if (!data) return [];
 
-  let items: ITxDropdownItem[] = data.map((item) => (typeof item === 'object' ? { ...item, checked: false } : { name: String(item), value: item, checked: false }));
+  let items: ITxDropdownItem<InferDropdownValue<TData> | undefined>[] = data.map((item) => (typeof item === 'object' ? { ...item, checked: false } : { name: String(item), value: item as InferDropdownValue<TData>, checked: false }));
+  if (addNoChoiceItem) {
+    const noChoice: ITxDropdownItem<InferDropdownValue<TData> | undefined> = { name: 'no select', value: undefined, checked: value === undefined };
+    items = [noChoice, ...items];
+  }
 
-  if (addNoChoiceItem) items = [{ name: 'no select', value: undefined, checked: value === undefined }, ...items];
-
-  if (value != null) items = items.map((i) => ({ ...i, checked: i.value === value }));
+  if (value !== undefined) {
+    items = items.map((i) => ({
+      ...i,
+      checked: i.value === value,
+    }));
+  }
 
   return items;
 };
@@ -96,10 +103,14 @@ const normalizeSingle = (data: ITxDropdownData | undefined, value: TxDropdownVal
  * ```
  */
 
-export const TxDropdown = ({ data, value, locale = (k) => k, fixedHead, addNoChoiceItem, defaultHead = 'Choose', ...props }: ITxDropdownProps) => {
-  const [xvalue, _xvalue] = React.useState<TxDropdownValue | undefined>(value);
+// ✅ 변경 후
+export const TxDropdown = <TData extends ITxDropdownData>({ data, value, locale = (k) => k, fixedHead, addNoChoiceItem, defaultHead = 'Choose', ...props }: ITxDropdownProps<TData>) => {
+  // 변경 후
+  const [xvalue, _xvalue] = React.useState<InferDropdownValue<TData> | undefined>(value);
 
   const actualValue = value !== undefined ? value : xvalue;
+
+  // 변경 후
   const items = useMemo(() => normalizeSingle(data, actualValue, addNoChoiceItem), [data, actualValue, addNoChoiceItem]);
 
   const head = React.useMemo(() => {
@@ -113,16 +124,20 @@ export const TxDropdown = ({ data, value, locale = (k) => k, fixedHead, addNoCho
     }
   }, [value]);
 
-  function hdChange(items: ITxDropdownItem[]) {
+  // 변경 후
+  function hdChange(items: ITxDropdownItem<InferDropdownValue<TData>>[]) {
     const item = items[0];
     if (!item) return;
 
     if (value === undefined) _xvalue(item.value);
 
     props.onChangeValue?.(item);
-    props.onChangeText?.(item.value == undefined ? undefined : (item.value as string));
-    props.onChangeNumb?.(item.value == undefined ? undefined : (item.value as number));
-    props.onChangeBool?.(item.value == undefined ? undefined : Boolean(item.value));
+
+    const v = item.value;
+
+    if (typeof v === 'string') props.onChangeText?.(v);
+    if (typeof v === 'number') props.onChangeNumb?.(v);
+    if (typeof v === 'boolean') props.onChangeBool?.(v);
   }
 
   return <TxDropdownBase {...props} data={items} locale={locale} head={head} multiple={false} onChangeInternal={hdChange} />;

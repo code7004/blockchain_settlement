@@ -29,6 +29,7 @@ function App() {
       axios.defaults.headers.common['Authorization'] = `Bearer ${state.auth.accessToken}`;
     }
   }
+
   return (
     // Redux 상태 전역 제공
     <ReduxProvider store={store}>

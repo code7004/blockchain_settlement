@@ -34,6 +34,7 @@ export class DepositRepository {
 
           status: DepositStatus.DETECTED,
           detectedAt: input.detectedAt,
+          writer: input.writer,
         },
       });
     } catch (e: unknown) {

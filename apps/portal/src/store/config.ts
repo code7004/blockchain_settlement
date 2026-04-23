@@ -9,6 +9,7 @@ export interface IStateConfig extends Record<string, unknown> {
   version: string;
   server: string;
   baseUrl: string;
+  partnerId?: string;
 }
 
 const initialState: IStateConfig = {
@@ -19,6 +20,7 @@ const initialState: IStateConfig = {
   version: '000',
   server: SERVER_TYPE.TEST,
   baseUrl: import.meta.env.VITE_API_BASE_URL_DEV,
+  partnerId: undefined,
 };
 
 type UpdatePayload = Partial<IStateConfig>;

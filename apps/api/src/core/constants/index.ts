@@ -15,7 +15,7 @@ export const CALLBACK_EVENT_TYPE = {
  * Deposit wallet의 잔액이 해당 금액 이상일 때
  * Hot Wallet으로 Sweep 수행
  */
-export const SWEEP_MIN_AMOUNT = 1;
+export const USDT_SWEEP_MIN_AMOUNT = 1;
 
 export const MIN_TRX_FOR_SWEEP = 0.1; // sweep 실행 최소 TRX
-export const REFILL_TRX_AMOUNT = 1; // refill전송량
+export const REFILL_TRX_AMOUNT = 10; // refill전송량

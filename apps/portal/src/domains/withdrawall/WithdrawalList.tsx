@@ -16,18 +16,18 @@ const TableOptions: ITxCoolTableOption = { headStyles, bodyStyles };
 export default function WithdrawalList() {
   const [filter, _filter] = useStateForObject({ pageIdx: 1, partnerId: '', txHash: '' });
 
-  const { data: partners } = usePartners(SYS_PAGE_ROLE.PUBLIC);
+  const { partnerId, _partnerId, partners } = usePartners(SYS_PAGE_ROLE.PUBLIC);
 
   useEffect(() => void (partners?.[0]?.value && _filter({ partnerId: partners[0].value })), [partners, _filter]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['withdrawalls', filter],
+    queryKey: ['withdrawalls', filter, partnerId],
     queryFn: async () => {
-      if (!filter.partnerId) return { data: [], total: 0 };
+      if (!partnerId) return { data: [], total: 0 };
       const res = await apiGetWithdrawals({ offset: (filter.pageIdx - 1) * ITEMSIZE, limit: ITEMSIZE, ..._.pick(filter, ['partnerId', 'txHash']) });
       return { data: (res.data?.map((e, idx) => ({ IDX: idx + 1, ...e })) as IWithdrawal[]) ?? [], total: res.total };
     },
-    enabled: !!filter.partnerId, // block condition
+    enabled: !!partnerId, // block condition
     staleTime: 1000 * 10,
     refetchInterval: 10000,
   });
@@ -35,7 +35,7 @@ export default function WithdrawalList() {
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex items-end justify-between gap-3 mb-4">
-        <TxFieldDropdown caption="partner" value={filter.partnerId} data={partners} onChangeText={(t) => _filter({ partnerId: t, pageIdx: 1 })} />
+        <TxFieldDropdown caption="partner" value={partnerId} data={partners} onChangeText={(t) => void (_partnerId(t), _filter({ pageIdx: 1 }))} />
         <TxSearchInput className="flex-1" onSubmitText={(t) => _filter({ txHash: t, pageIdx: 1 })} placeholder="Search txHash" onClear={(t) => _filter({ txHash: t, pageIdx: 1 })} />
       </div>
 

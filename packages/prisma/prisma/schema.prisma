@@ -16,6 +16,85 @@ datasource db {
 }
 
 /// ------------------------------------------------------------------
+/// Enums
+/// ------------------------------------------------------------------
+
+/// 관리자 역할
+enum MemberRole {
+  OWNER
+  OPERATOR
+  DEVELOPER
+}
+
+/// 지갑 상태
+enum WalletStatus {
+  ACTIVE /// 정상 사용 가능
+  SUSPENDED /// 입출금 제한 (risk / 정책)
+  LOCKED /// 보안 이슈 (해킹 의심)
+  PENDING /// 생성 직후
+}
+
+/// 실제 사용되지 않으며 Deposit,Withdrawal 등 트랜젝션 status들의 기준이 됨
+enum TxStatus {
+  DETECTED // 체인 이벤트 감지
+  PENDING // 처리 대기 (job / 승인 대기)
+  BROADCASTED // 체인 제출됨 (txHash 존재)
+  CONFIRMED // 체인 확정
+  FAILED // 실패
+  SKIPPED // 정책상 제외
+}
+
+/// 입금 상태
+enum DepositStatus {
+  DETECTED // TxStatus.DETECTED
+  CONFIRMED // TxStatus.CONFIRMED
+  FAILED // TxStatus.FAILED
+}
+
+/// 출금 상태
+enum WithdrawalStatus {
+  REQUESTED // TxStatus.PENDING
+  APPROVED // TxStatus.PENDING
+  BROADCASTED // TxStatus.BROADCASTED
+  CONFIRMED // TxStatus.CONFIRMED
+  FAILED // TxStatus.FAILED
+}
+
+/// 콜백 상태
+enum CallbackStatus {
+  PENDING // 대기
+  SUCCESS // 전송 성공
+  FAILED // 전송 실패
+}
+
+enum SweepJobStatus {
+  PENDING // TxStatus.PENDING
+  PROCESSING // for rock
+}
+
+/// Sweep 처리 결과 상태
+enum SweepStatus {
+  PENDING // TxStatus.PENDING
+  BROADCASTED // TxStatus.BROADCASTED
+  CONFIRMED // TxStatus.CONFIRMED
+  FAILED // TxStatus.FAILED
+  SKIPPED // TxStatus.SKIPPED
+}
+
+enum AssetsReclaimJobStatus {
+  PENDING // TxStatus.PENDING (대기)
+  PROCESSING // TxStatus.BROADCASTED or 내부 진행중 상태
+  CONFIRMED // TxStatus.CONFIRMED (완료)
+  FAILED // TxStatus.FAILED (실패)
+}
+
+enum ExceptionLogStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+/// ------------------------------------------------------------------
 /// HealthPing
 /// ------------------------------------------------------------------
 /// 시스템 헬스 체크용 테이블
@@ -25,6 +104,33 @@ model HealthPing {
   id        String   @id @default(uuid()) @db.Uuid
   message   String
   createdAt DateTime @default(now()) @db.Timestamptz(3)
+}
+
+/// ------------------------------------------------------------------
+/// Member
+/// ------------------------------------------------------------------
+/// 관리자 / 운영자 / 개발자 계정
+/// - Admin UI 인증 주체
+/// - JWT 로그인 대상
+model Member {
+  /// PK
+  id String @id @default(uuid()) @db.Uuid
+
+  /// 로그인 ID
+  username String @unique
+
+  /// 비밀번호 (bcrypt hash)
+  password String
+
+  /// 역할
+  role MemberRole @default(DEVELOPER)
+
+  /// 활성 여부
+  isActive Boolean @default(true)
+
+  /// 생성 / 수정
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 }
 
 /// ------------------------------------------------------------------
@@ -73,6 +179,7 @@ model Partner {
   deposits     Deposit[]
   withdrawals  Withdrawal[]
   callbackLogs CallbackLog[]
+  sweepLogs    SweepLog[]
 
   @@index([isActive])
 }
@@ -113,12 +220,6 @@ model User {
   @@index([isActive])
 }
 
-/// 지갑 상태
-enum WalletStatus {
-  ACTIVE
-  SUSPENDED
-}
-
 /// ------------------------------------------------------------------
 /// Wallet
 /// ------------------------------------------------------------------
@@ -144,26 +245,29 @@ model Wallet {
   /// 상태
   status WalletStatus @default(ACTIVE)
 
+  /// 최종 리필 시간
+  lastRefillAt DateTime? @db.Timestamptz(3)
+
+  /// 리필 횟수
+  refillCount Int @default(0)
+
+  /// 자산 스냇샷(실시간 아님)
+  assetsSnapshot Json?
+
   /// 생성 / 수정
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   /// 관계
-  partner     Partner      @relation(fields: [partnerId], references: [id])
-  user        User         @relation(fields: [userId], references: [id])
-  deposits    Deposit[]
-  withdrawals Withdrawal[]
+  partner           Partner            @relation(fields: [partnerId], references: [id])
+  user              User               @relation(fields: [userId], references: [id])
+  deposits          Deposit[]
+  withdrawals       Withdrawal[]
+  assetsReclaimJobs AssetsReclaimJob[]
 
   @@index([partnerId])
   @@index([userId])
   @@index([status])
-}
-
-/// 입금 상태
-enum DepositStatus {
-  DETECTED /// 블록 감지 완료
-  CONFIRMED /// 컨펌 완료 (잔액 반영 기준)
-  FAILED /// 처리 실패
 }
 
 /// ------------------------------------------------------------------
@@ -201,11 +305,16 @@ model Deposit {
   /// 상태
   status DepositStatus
 
+  // failed reason
+  reason String?
+
   /// 감지 시간
   detectedAt DateTime @db.Timestamptz(3)
 
   /// 확정 시간
   confirmedAt DateTime? @db.Timestamptz(3)
+
+  writer String? @db.VarChar(50)
 
   /// 생성 시간
   createdAt DateTime @default(now()) @db.Timestamptz(3)
@@ -215,13 +324,68 @@ model Deposit {
   callbackLogs CallbackLog[]
   user         User          @relation(fields: [userId], references: [id])
   wallet       Wallet        @relation(fields: [walletId], references: [id])
+  sweepJob     SweepJob?
+  sweepLogs    SweepLog[]
 }
 
-/// 콜백 상태
-enum CallbackStatus {
-  PENDING
-  SUCCESS
-  FAILED
+/// ------------------------------------------------------------------
+/// Withdrawal
+/// ------------------------------------------------------------------
+/// 출금 요청 및 브로드캐스트 기록
+/// - Phase1: 구조 검증 중심
+model Withdrawal {
+  /// PK
+  id String @id @default(uuid()) @db.Uuid
+
+  /// 소속
+  partnerId String @db.Uuid
+  userId    String @db.Uuid
+  walletId  String @db.Uuid
+
+  /// 토큰
+  tokenSymbol   String
+  tokenContract String
+
+  /// 수신 주소
+  toAddress String
+
+  /// 금액
+  amount Decimal @db.Decimal(36, 18)
+
+  /// 상태
+  status WithdrawalStatus @default(REQUESTED)
+
+  // failed reason
+  reason String?
+
+  /// 트랜잭션 정보
+  txHash      String? @unique
+  blockNumber BigInt?
+
+  /// 상태 시간
+  requestedAt   DateTime? @db.Timestamptz(3)
+  approvedAt    DateTime? @db.Timestamptz(3)
+  broadcastedAt DateTime? @db.Timestamptz(3)
+
+  /// 실패 사유
+  failReason String?
+
+  writer String? @db.VarChar(50)
+
+  /// 생성 / 수정
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  /// 관계
+  partner Partner @relation(fields: [partnerId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+  wallet  Wallet  @relation(fields: [walletId], references: [id])
+
+  @@index([partnerId])
+  @@index([userId])
+  @@index([walletId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 /// ------------------------------------------------------------------
@@ -265,8 +429,13 @@ model CallbackLog {
   /// 상태
   status CallbackStatus
 
+  // failed reason
+  reason String?
+
   /// 마지막 시도 시간
   lastAttemptAt DateTime? @db.Timestamptz(3)
+
+  writer String? @db.VarChar(50)
 
   /// 생성 / 수정
   createdAt DateTime @default(now()) @db.Timestamptz(3)
@@ -307,99 +476,149 @@ model CallbackTestLog {
   @@map("callback_test_logs")
 }
 
-/// 출금 상태
-enum WithdrawalStatus {
-  REQUESTED
-  APPROVED
-  BROADCASTED
-  FAILED
+/// ------------------------------------------------------------------
+/// ExceptionLog
+/// ------------------------------------------------------------------
+/// Runtime code error log.
+/// - Business failure is tracked by each domain log table.
+/// - Request headers/body and secrets are not stored here.
+model ExceptionLog {
+  id String @id @default(uuid()) @db.Uuid
+
+  source     String @db.VarChar(80)
+  statusCode Int
+
+  errorName String? @db.VarChar(120)
+  message   String  @db.Text
+  stack     String? @db.Text
+
+  method String? @db.VarChar(10)
+  path   String? @db.VarChar(500)
+
+  workerName String? @db.VarChar(80)
+  jobId      String? @db.Uuid
+  depositId  String? @db.Uuid
+  partnerId  String? @db.Uuid
+
+  status     ExceptionLogStatus @default(OPEN)
+  assignedTo String?            @db.Uuid
+  writer     String?            @db.VarChar(50)
+  isDeleted  Boolean            @default(false)
+  deletedAt  DateTime?          @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([source])
+  @@index([statusCode])
+  @@index([status])
+  @@index([assignedTo])
+  @@index([isDeleted])
+  @@index([partnerId])
+  @@index([depositId])
+  @@index([jobId])
+  @@index([createdAt])
+  @@map("exception_logs")
 }
 
 /// ------------------------------------------------------------------
-/// Withdrawal
+/// SweepJob
 /// ------------------------------------------------------------------
-/// 출금 요청 및 브로드캐스트 기록
-/// - Phase1: 구조 검증 중심
-model Withdrawal {
-  /// PK
+/// Confirmed 된 Deposit을 Sweep 대상으로 큐잉하기 위한 테이블
+/// - Deposit 1건당 1개의 SweepJob만 생성 (중복 방지)
+/// - Worker가 이 테이블을 기준으로 Sweep 수행
+/// - 실제 처리 결과는 SweepLog에 기록됨 (이 테이블은 Queue 역할)
+model SweepJob {
   id String @id @default(uuid()) @db.Uuid
 
-  /// 소속
-  partnerId String @db.Uuid
-  userId    String @db.Uuid
-  walletId  String @db.Uuid
+  /// 대상 Deposit (1:1 관계, 중복 Sweep 방지 핵심 키)
+  depositId String @unique @db.Uuid
 
-  /// 토큰
-  tokenSymbol   String
-  tokenContract String
+  status SweepJobStatus
 
-  /// 수신 주소
-  toAddress String
+  writer String? @db.VarChar(50)
 
-  /// 금액
-  amount Decimal @db.Decimal(36, 18)
-
-  /// 상태
-  status WithdrawalStatus @default(REQUESTED)
-
-  /// 트랜잭션 정보
-  txHash      String? @unique
-  blockNumber BigInt?
-
-  /// 상태 시간
-  requestedAt   DateTime? @db.Timestamptz(3)
-  approvedAt    DateTime? @db.Timestamptz(3)
-  broadcastedAt DateTime? @db.Timestamptz(3)
-
-  /// 실패 사유
-  failReason String?
-
-  /// 생성 / 수정
+  /// Job 생성 시점 (Sweep 대기 시작 시간)
   createdAt DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
-  /// 관계
-  partner Partner @relation(fields: [partnerId], references: [id])
-  user    User    @relation(fields: [userId], references: [id])
-  wallet  Wallet  @relation(fields: [walletId], references: [id])
+  /// Deposit relation
+  deposit Deposit @relation(fields: [depositId], references: [id])
 
-  @@index([partnerId])
-  @@index([userId])
-  @@index([walletId])
-  @@index([status])
+  /// Worker 조회 성능을 위한 인덱스
   @@index([createdAt])
 }
 
-/// 관리자 역할
-enum MemberRole {
-  OWNER
-  OPERATOR
-  DEVELOPER
+/// ------------------------------------------------------------------
+/// SweepLog
+/// ------------------------------------------------------------------
+/// Sweep 실행 결과 로그 테이블
+/// - 모든 Sweep 시도는 이 테이블에 기록됨 (Audit 목적)
+/// - 재시도, 실패 원인, 수수료 추적 가능
+/// - SweepJob은 Queue, SweepLog는 실행 이력
+model SweepLog {
+  id String @id @default(uuid()) @db.Uuid
+
+  partnerId String @db.Uuid
+
+  /// 대상 Deposit (N:1, 여러 번 시도 가능)
+  depositId String @db.Uuid
+
+  /// 체인 트랜잭션 해시 (성공 시 필수, UNIQUE로 중복 방지)
+  txHash String? @unique
+
+  /// 주소
+  fromAddress String?
+
+  toAddress String?
+
+  /// 실제 Sweep된 토큰 수량
+  amount Decimal? @db.Decimal(30, 6)
+
+  /// 수수료 정보 (TRX or 기타)
+  feeAmount Decimal? @db.Decimal(30, 6)
+  feeSymbol String?  @db.VarChar(20)
+
+  /// 처리 결과 상태
+  status SweepStatus
+
+  // failed reason
+  reason String?
+
+  /// 실패 시 에러 메시지 (디버깅 및 운영 대응용)
+  errorMessage String?
+
+  writer String? @db.VarChar(50)
+
+  /// 실행 시각
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  /// Deposit relation
+  deposit Deposit @relation(fields: [depositId], references: [id])
+  partner Partner @relation(fields: [partnerId], references: [id])
+
+  /// Deposit 기준 조회 최적화 (특정 입금의 Sweep 이력 조회)
+  @@index([depositId])
+  /// 상태 기반 조회 최적화 (FAILED 재처리 등)
+  @@index([status])
+  @@index([partnerId])
 }
 
 /// ------------------------------------------------------------------
-/// Member
+/// AssetsReclaimJob
 /// ------------------------------------------------------------------
-/// 관리자 / 운영자 / 개발자 계정
-/// - Admin UI 인증 주체
-/// - JWT 로그인 대상
-model Member {
-  /// PK
-  id String @id @default(uuid()) @db.Uuid
+/// Wallet의 Assets을 모두 THOT로 보내기 위한 Job_Queue
+model AssetsReclaimJob {
+  id         String                 @id @default(uuid()) @db.Uuid
+  walletId   String                 @db.Uuid
+  status     AssetsReclaimJobStatus @default(PENDING)
+  // failed reason
+  reason     String?
+  retryCount Int                    @default(0)
+  writer     String?                @db.VarChar(50)
+  createdAt  DateTime               @default(now()) @db.Timestamptz(3)
+  startedAt  DateTime?              @db.Timestamptz(3)
+  finishedAt DateTime?              @db.Timestamptz(3)
 
-  /// 로그인 ID
-  username String @unique
+  wallet Wallet @relation(fields: [walletId], references: [id])
 
-  /// 비밀번호 (bcrypt hash)
-  password String
-
-  /// 역할
-  role MemberRole @default(DEVELOPER)
-
-  /// 활성 여부
-  isActive Boolean @default(true)
-
-  /// 생성 / 수정
-  createdAt DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@index([status])
 }

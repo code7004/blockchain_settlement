@@ -1,28 +1,21 @@
 import { MIN_TRX_FOR_SWEEP, REFILL_TRX_AMOUNT } from '@/core/constants';
 import { EnvService } from '@/core/env/env.service';
 import { TronService } from '@/infra/tron/tron.service';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { WalletRepository } from '../domains/wallet/wallet.repository';
+import { BaseWorker } from './base.worker';
 
 @Injectable()
-export class GasRefillWorker {
-  private readonly logger = new Logger(GasRefillWorker.name);
-  private pollInterval = 10000000;
-
+export class GasRefillWorker extends BaseWorker {
   constructor(
     private readonly env: EnvService,
-    private readonly walletRepo: WalletRepository,
     private readonly tronService: TronService,
+    private readonly walletRepo: WalletRepository,
   ) {
-    this.pollInterval = this.env.getPollInterval('gasrefill');
+    super('GasRefillWorker', env.getPollInterval('gasrefill'));
   }
 
-  onModuleInit() {
-    this.logger.log(`STARTED interval=${this.pollInterval}ms -----------------------------`);
-    setInterval(() => void this.run(), this.pollInterval);
-  }
-
-  async run() {
+  async process() {
     const wallets = await this.walletRepo.findActiveWallets();
 
     for (const wallet of wallets) {
@@ -33,7 +26,7 @@ export class GasRefillWorker {
           continue;
         }
 
-        const txHash = await this.tronService.sendTrx(this.env.gasTankPrivateKey, wallet.address, REFILL_TRX_AMOUNT);
+        const txHash = await this.tronService.transferTrx(this.env.gasTankPrivateKey, wallet.address, REFILL_TRX_AMOUNT);
 
         this.logger.log(`wallet=${wallet.address} trx=${trx} txHash=${txHash}`);
       } catch (err) {

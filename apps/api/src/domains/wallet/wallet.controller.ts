@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { PartnerId } from '../auth/decorators/partner-id.decorator';
 import { ApiKeyGuard } from '../auth/guards/api-key.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CreateReclaimJobsDto } from './dto/create-reclaim-jobs.dto';
 import { CreateWalletDto } from './dto/create-wallet.dto';
 import { ApiGetWalletsQueryDto, GetWalletsQueryDto } from './dto/get-wallets.query.dto';
 import { WalletService } from './wallet.service';
@@ -52,5 +53,15 @@ export class ADminWalletController {
   @Get()
   findAll(@Query() query: GetWalletsQueryDto) {
     return this.service.findAll(query);
+  }
+
+  @Get(':id/assets')
+  async getAssets(@Param('id') id: string) {
+    return this.service.getAssets(id);
+  }
+
+  @Post('/assets-reclaim')
+  async reclaim(@Body() body: CreateReclaimJobsDto) {
+    return this.service.createReclaimJobsAll(body);
   }
 }

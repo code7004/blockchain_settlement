@@ -1,188 +1,279 @@
-## Architecture
+# Architecture
 
-### High-Level Structure
+## Overview
 
-이 시스템은 Partner 서비스가 API를 통해 Wallet 시스템과 통신하고, 블록체인 네트워크와 연결되어 입금 정산을 수행하는 구조입니다.
+이 문서는 파트너/포털 개발자가 시스템 구조를 이해할 수 있도록 공개 가능한 아키텍처를 설명합니다.
 
-```
-[Partner Service]
-        ↓ REST API
-[Wallet API]
-        ↓
-[Tron Network]
-```
-
-Partner는 API를 통해 지갑을 생성하고 입금 주소를 발급받으며,
-
-실제 자산 이동은 Tron 네트워크에서 발생합니다.
+민감한 내부 키, 서버 운영 상세, privateKey 처리 세부 구현은 포함하지 않습니다.
 
 ---
 
-### Full System Flow
+## 1. High-Level Structure
 
-전체 흐름은 다음과 같습니다.
+```text
+Partner Service
+  -> Partner API
+  -> NestJS API
+  -> PostgreSQL
 
-```
-User → Deposit Wallet
-        ↓
-Deposit Watcher
-        ↓
-DETECTED
-        ↓
-CONFIRMED
-        ↓
-Callback
-        ↓
-Sweep
-        ↓
-Hot Wallet(THOT)
+End User
+  -> Tron Network
+  -> Deposit Wallet
 
-```
+Workers
+  -> TronGrid / Tron Node
+  -> Deposit / Callback / Sweep 처리
 
-이 구조는 다음 원칙을 기반으로 합니다:
-
-- 입금은 블록 스캔 기반으로 감지
-- Confirmation 이후만 확정 처리
-- 자금은 중앙 Hot Wallet으로 집계
-
----
-
-### Core Components
-
-#### 1. Deposit Wallet
-
-- 사용자별로 생성되는 입금 전용 주소
-- 자산 보관이 아닌 **입금 식별 목적**
-
-```
-User → Deposit Wallet
+Admin / Developer Portal
+  -> Portal API
+  -> 운영/조회 화면
 ```
 
 ---
 
-#### 2. Deposit Watcher
+## 2. API Areas
 
-- 블록을 스캔하여 입금을 감지하는 백그라운드 작업
-- Wallet을 조회하지 않고 블록을 읽어서 트랜잭션을 분석
+### Partner API
 
+파트너 서버가 직접 호출하는 API입니다.
+
+인증:
+
+```http
+x-api-key: {PARTNER_API_KEY}
 ```
-Block → Transaction → Address Match
+
+주요 기능:
+
+- User 생성
+- User 조회
+- Wallet 조회
+- Deposit 조회
+
+Swagger:
+
+```text
+/docs/api
 ```
 
-이 구조는 확장성과 안정성을 위해 선택되었습니다.
+### Portal API
+
+Portal 화면이 사용하는 API입니다.
+
+인증:
+
+```http
+Authorization: Bearer {JWT}
+```
+
+주요 기능:
+
+- Partner 관리
+- Member 관리
+- Callback retry
+- Sweep 조회
+- Balance 조회
+- Blockchain test/monitoring
+- 문서/운영 화면 지원
+
+Swagger:
+
+```text
+/docs/partner
+```
 
 ---
 
-#### 3. Confirmation Layer
+## 3. Worker Architecture
 
-- 블록 수 기준으로 입금 확정 여부 판단
-- 상태 전이:
+시스템은 API 요청과 별도로 백그라운드 Worker가 체인/정산 흐름을 처리합니다.
 
+```text
+DepositWorker
+  -> TRC20 Transfer event 감지
+
+ConfirmWorker
+  -> Deposit confirmation
+  -> Sweep confirmation
+
+CallbackWorker
+  -> Partner callback retry
+
+SweepWorker
+  -> Deposit Wallet -> Hot Wallet transfer
+
+ReclaimWorker
+  -> Wallet asset reclaim operation
 ```
-DETECTED → CONFIRMED
-```
 
-확정 이후에만 잔액 및 콜백이 발생합니다.
+Worker는 Partner가 직접 호출하지 않습니다. Partner는 API 조회와 callback 수신을 통해 결과를 확인합니다.
 
 ---
 
-#### 4. Sweep Worker
+## 4. Deposit Architecture
 
-- Deposit Wallet에 있는 자금을 Hot Wallet으로 이동
+입금 흐름:
 
+```text
+End User
+  -> TRC20 transfer
+  -> Deposit Wallet
+  -> Tron Network
+  -> DepositWorker
+  -> Deposit(status=DETECTED)
+  -> ConfirmWorker
+  -> Deposit(status=CONFIRMED)
+  -> CallbackWorker
+  -> Partner callbackUrl
 ```
-Deposit Wallet → Hot Wallet
-```
 
-목적:
+설계 이유:
 
-- 자산 중앙 집중 관리
-- 보안 강화
+- Wallet balance polling이 아니라 Transfer event 기반으로 감지합니다.
+- txHash unique로 멱등성을 확보합니다.
+- confirmation 이후에만 유효 입금으로 처리합니다.
 
 ---
 
-#### 5. Hot Wallet (THOT)
+## 5. Sweep Architecture
 
-- 실제 자산을 보관하는 중앙 지갑
-- 모든 출금 트랜잭션의 송신 주체
+입금된 token은 Deposit Wallet에 장기간 보관하지 않고 Hot Wallet로 집계합니다.
 
+```text
+Deposit(status=CONFIRMED)
+  -> SweepJob
+  -> SweepWorker
+  -> SweepLog(status=BROADCASTED)
+  -> ConfirmWorker
+  -> SweepLog(status=CONFIRMED or FAILED)
 ```
-Hot Wallet → User
-```
+
+개념:
+
+- SweepJob: 처리 대기 queue 역할
+- SweepLog: 실행 이력 및 상태 추적
+- Hot Wallet: 중앙 집계 지갑
+- Gas Tank: Deposit Wallet의 TRX 부족 시 보충하는 지갑
+
+보안상 Hot Wallet/Gas Tank의 privateKey는 외부에 공개되지 않습니다.
 
 ---
 
-#### 6. Callback System
+## 6. Callback Architecture
 
-- 입금 확정 후 파트너 시스템으로 이벤트 전달
-- HMAC 서명 기반 보안 적용
+입금 확정 후 시스템은 Partner callbackUrl로 이벤트를 보냅니다.
+
+```text
+Deposit CONFIRMED
+  -> CallbackLog PENDING
+  -> HMAC signature 생성
+  -> POST partner.callbackUrl
+  -> 2xx 응답이면 SUCCESS
+  -> 실패하면 retry
+```
+
+파트너 서버는 다음을 구현해야 합니다.
+
+- HMAC signature 검증
+- txHash/callbackId 멱등 처리
+- 정상 처리 후 2xx 응답
 
 ---
 
-### Key Design Decisions
+## 7. Portal Architecture
 
-이 시스템은 다음과 같은 설계 결정을 기반으로 구성되었습니다.
+Portal은 권한에 따라 Public/Developer 영역과 Admin 영역으로 나뉩니다.
+
+```text
+/login
+
+/              Public / Developer
+/admin         Admin / Operator
+```
+
+Public/Developer 영역:
+
+- API Guide
+- Data Model
+- Data Flow
+- Security
+- Partner/User/Wallet/Deposit/Callback/Sweep 조회
+
+Admin 영역:
+
+- Partner 생성/수정
+- API Key 생성/회전
+- Member 관리
+- Callback retry
+- Sweep 운영 조회
+- System/Monitoring 영역
 
 ---
 
-#### 1. Wallet Polling이 아닌 Block Scanning
+## 8. State Model
 
-일반적인 방식:
+Deposit:
 
-```
-Wallet → Balance 조회
-```
-
-이 시스템:
-
-```
-Block → Transaction → Address 매칭
+```text
+DETECTED -> CONFIRMED
+DETECTED -> FAILED
 ```
 
-이 방식은 다음 장점이 있습니다:
+Callback:
 
-- 대량 트랜잭션 처리에 유리
-- 확장성 확보
-- 멱등성 보장 용이
+```text
+PENDING -> SUCCESS
+PENDING -> FAILED
+```
+
+Sweep:
+
+```text
+PENDING -> BROADCASTED -> CONFIRMED
+        \-> FAILED
+        \-> SKIPPED
+```
+
+Withdrawal:
+
+```text
+REQUESTED -> APPROVED -> BROADCASTED -> CONFIRMED
+                              \-> FAILED
+```
+
+현재 public integration의 핵심은 Deposit / Callback 흐름입니다. Withdrawal은 별도 운영 정책과 함께 확장됩니다.
 
 ---
 
-#### 2. Confirmation 기반 정산
+## 9. Design Principles
 
-- 즉시 반영하지 않음
-- 일정 블록 이후 확정
-
-이유:
-
-- 체인 안정성 확보
-- Reorg 리스크 방지
-
----
-
-#### 3. Hot Wallet 구조
-
-- 모든 자산을 중앙 지갑으로 집계
-- Deposit Wallet은 보관 용도가 아님
-
-이유:
-
-- 출금 통제 가능
-- 키 관리 단순화
-- 보안 강화
+- Partner 단위 데이터 격리
+- privateKey 외부 미노출
+- confirmation 이후 잔액 반영
+- txHash 기반 멱등성
+- Worker 기반 비동기 처리
+- callback HMAC 검증
+- Hot Wallet 중심 자산 집계
+- Admin 기능과 Developer 조회 기능 분리
 
 ---
 
-#### 4. State Transition 기반 처리
+## 10. What Developers Should Not Depend On
 
-모든 흐름은 상태 전이를 통해 관리됩니다.
+다음 항목은 내부 구현 세부사항이므로 외부 연동 로직이 의존하면 안 됩니다.
 
-예:
+- 내부 DB 테이블명
+- Worker polling interval
+- Hot Wallet 주소 변경 가능성
+- Gas Tank refill 시점
+- 내부 writer/server name
+- privateKey 또는 encryptedPrivateKey
+- callback retry의 정확한 실행 시각
 
-```
-DETECTED → CONFIRMED
-REQUESTED → APPROVED → BROADCASTED
-```
+외부 연동은 다음 기준에 의존해야 합니다.
 
-이 구조는 정합성과 멱등성을 보장합니다.
-
----
+- API response
+- callback payload
+- txHash
+- callbackId
+- documented status

@@ -14,10 +14,8 @@ export default function DevConsolePage() {
   const config = useConfig();
   const [walletBalance, setWalletBalance] = useState<IGetAdminBlockChainWalletBalance>();
   const [eMessage, _eMessage] = useState<Record<string, string>>({});
-  const [hiddenPartnerId, _partnerId] = useState<string>();
 
-  const { data: partners } = usePartners(SYS_PAGE_ROLE.PUBLIC);
-  const partnerId = hiddenPartnerId || partners?.[0]?.value;
+  const { partnerId, _partnerId, partners } = usePartners(SYS_PAGE_ROLE.PUBLIC);
 
   const [txHash, _txHash] = useState<string>();
   const [txProcess, _txProcess] = useState<IGetAdminBlockChainTxHashMonitor>();
@@ -25,12 +23,12 @@ export default function DevConsolePage() {
   const [form, setForm] = useStateForObject({
     fromPrivateKey: config.server === SERVER_TYPE.TEST ? ((import.meta.env.VITE_SENDER_WALLET_PRIVATE_KEY as string) ?? '') : '',
     toAddress: '',
-    amount: 0.1,
-    tokenSymbol: config.server === SERVER_TYPE.TEST ? 'mUSDT' : 'USDT',
+    amount: 0.01,
+    tokenSymbol: config.server === SERVER_TYPE.TEST ? import.meta.env.VITE_TOKEN_SYMBOL : 'USDT',
   });
 
   const { data: wallets } = useQuery({
-    queryKey: ['devConsole', !partnerId],
+    queryKey: ['devConsole', partnerId],
     queryFn: async () => {
       if (!partnerId) return [];
       const res = await apiGetWallets({ limit: 20, partnerId });

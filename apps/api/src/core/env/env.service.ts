@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { decryptPrivateKey } from '../crypto/aes256';
 
 @Injectable()
 export class EnvService {
@@ -95,13 +96,14 @@ export class EnvService {
   // POLLING INTERVAL
   // -------------------------------
 
-  getPollInterval(key: 'deposit' | 'confirm' | 'callback' | 'gasrefill' | 'sweep'): number {
+  getPollInterval(key: 'deposit' | 'confirm' | 'callback' | 'gasrefill' | 'sweep' | 'reclaim'): number {
     const envKeyMap = {
       deposit: 'DEPOSIT_POLL_INTERVAL',
       confirm: 'CONFIRM_POLL_INTERVAL',
       callback: 'CALLBACK_POLL_INTERVAL',
       gasrefill: 'GASREFILL_POLL_INTERVAL',
       sweep: 'SWEEP_POLL_INTERVAL',
+      reclaim: 'Reclaim_POLL_INTERVAL',
     } as const;
 
     const envKey = envKeyMap[key];
@@ -119,5 +121,16 @@ export class EnvService {
     }
 
     return value;
+  }
+
+  decryptPrivateKey(encryptedPrivateKey: string) {
+    return decryptPrivateKey(encryptedPrivateKey, this.mustGet('WALLET_MASTER_KEY_BASE64'));
+  }
+
+  get openaiKey(): string {
+    return this.mustGet('OPENAI_API_KEY');
+  }
+  get name(): string {
+    return this.mustGet('NAME');
   }
 }

@@ -5,28 +5,30 @@ import type { RouteTree } from '@/core/route-meta';
 import MainPage from '@/pagas/MainPage';
 
 // Pages
+import MarkDownViewer from '@/components/MarkDownViewer';
 import BalancePage from '@/domains/balance/BalancePage';
 import ThotPage from '@/domains/blockchain/ThotPage';
 import WatcherStatusPage from '@/domains/blockchain/WatcherStatusPage';
-import AdminMemberList from '@/domains/member/AdminMemberList';
-import AdminPartnerList from '@/domains/partner/AdminPartnerList';
-import PublicPartnerList from '@/domains/partner/PublicPartnerList';
-import WithdrawalList from '@/domains/withdrawall/WithdrawalList';
-
-import MarkDownViewer from '@/components/MarkDownViewer';
 import AdminCallbackList from '@/domains/callback/AdminCallbackList';
 import PublicCallbackList from '@/domains/callback/PublicCallbackList';
 import PublicDashboard from '@/domains/dashboard/PublicDashboard';
 import AdminDepositList from '@/domains/deposit/AdminDepositList';
 import PublicDepositList from '@/domains/deposit/PublicDepositList';
 import DevConsolePage from '@/domains/devconsole/DevConsolePage';
+import AdminMemberList from '@/domains/member/AdminMemberList';
 import { MemberRole } from '@/domains/member/member.api';
+import Openai from '@/domains/openai/Openai';
+import AdminPartnerList from '@/domains/partner/AdminPartnerList';
+import PublicPartnerList from '@/domains/partner/PublicPartnerList';
+import AdminSweepList from '@/domains/sweep/AdminSweepList';
+import PublicSweepList from '@/domains/sweep/PublicSweepList';
 import SwaggerPage from '@/domains/swgger/SwaggerPage';
-import ErrorReportPage from '@/domains/system/ErrorReportPage';
+import AdminExceptionLogList from '@/domains/system/exception-log/AdminExceptionLogList';
 import AdminUserList from '@/domains/user/AdminUserList';
 import PublicUserList from '@/domains/user/PublicUserList';
 import AdminWalletList from '@/domains/wallet/AdminWalletList';
 import PublicWalletList from '@/domains/wallet/PublicWalletList';
+import WithdrawalList from '@/domains/withdrawall/WithdrawalList';
 import LoginPage from '@/pagas/LoginPage';
 import NotFoundPage from '@/pagas/NotFoundPage';
 import { Navigate, Outlet } from 'react-router-dom';
@@ -62,6 +64,11 @@ export const RouteData = {
         path: '/callbacks',
         element: <PublicCallbackList />,
         meta: { label: 'Callbacks', icon: '🔁', description: '파트너 콜백 전송 결과,재시도 횟수,응답 코드 및 실패 상태를 확인', permissions: [OWNER, OPERATOR, DEVELOPER] },
+      },
+      PublicSweeps: {
+        path: '/sweeps',
+        element: <PublicSweepList />,
+        meta: { label: 'Sweeps', icon: '🔁', description: 'Deposit Sweep list', permissions: [OWNER, OPERATOR, DEVELOPER] },
       },
       Documents: {
         path: 'documents',
@@ -163,6 +170,12 @@ export const RouteData = {
         element: <AdminCallbackList />,
         meta: { label: 'Callbacks', icon: '🔁', description: '파트너 콜백 전송 결과,재시도 횟수,응답 코드 및 실패 상태를 확인', permissions: [OWNER, OPERATOR] },
       },
+      Sweeps: {
+        path: '/admin/sweeps',
+        element: <AdminSweepList />,
+        meta: { label: 'Sweeps', icon: '🔁', description: 'Deposit Sweep list', permissions: [OWNER, OPERATOR] },
+      },
+
       Blockchain: {
         enabled: false,
         path: '/admin/blockchain',
@@ -214,13 +227,18 @@ export const RouteData = {
               Security: { path: '/admin/documents/system/security', element: <MarkDownViewer docKey="security" />, meta: { label: 'Security', icon: '🔐', description: '보안 정책 및 키 관리', permissions: [OWNER, OPERATOR] } },
             },
           },
+          OpenAi: { path: '/admin/documents/openai', element: <Openai />, meta: { label: 'OpenAi', icon: '📝', description: 'Open Ai', permissions: [OWNER] } },
         },
       },
       System: {
         path: '/admin/system',
         meta: { label: 'System', icon: '⚙️', description: '에러 리포트,시스템 모니터링,감사 로그 등 운영 시스템 관리 메뉴 그룹', permissions: [OWNER, OPERATOR] },
         children: {
-          Errors: { path: '/admin/system/errors', element: <ErrorReportPage />, meta: { label: 'Error Reports', icon: '🚨', description: '애플리케이션 에러,장애 징후,실패 요청 내역을 조회', permissions: [OWNER, OPERATOR] } },
+          ExceptionLogs: {
+            path: '/admin/system/exception-logs',
+            element: <AdminExceptionLogList />,
+            meta: { label: 'Exception Logs', icon: '🚨', description: '애플리케이션 에러,장애 징후,실패 요청 내역을 조회', permissions: [OWNER, OPERATOR] },
+          },
           Monitoring: {
             path: '/admin/system/monitoring',
             element: <div>System Monitoring</div>,

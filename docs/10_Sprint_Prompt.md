@@ -1,283 +1,242 @@
 # Sprint Prompt Guide
 
-이 문서는 **Multi-Partner Blockchain Settlement System** 개발을
-
-GPT와 함께 진행하기 위한 **Sprint Prompt 규칙 문서**이다.
-
-목적
-
-- 새 채팅에서도 프로젝트 컨텍스트 유지
-- 문서 기반 구현 강제
-- Domain 구조 유지
-- 단계별 코드 구현
-- Sprint 단위 개발 관리
-
-이 프로젝트는 **Document Driven Development 방식**으로 진행된다.
+> GPT/Codex와 함께 이 프로젝트를 진행하기 위한 작업 규칙
+>
+> 현재 기준: Phase3 Step3 진행 중
 
 ---
 
-# 1. 기본 사용 방법
+# 1. Purpose
 
-새 채팅에서 다음과 같이 입력한다.
+이 문서는 새 작업을 시작할 때 프로젝트 컨텍스트를 유지하고, 문서 기반 개발 방식을 강제하기 위한 가이드이다.
 
+목적:
+
+- 문서 기반 구현 유지
+- 현재 Phase 범위 준수
+- Domain Architecture 유지
+- Worker 구조 임의 변경 방지
+- 상태 전이 규칙 문서 기준 유지
+- 작업 전 관련 문서 확인
+
+---
+
+# 2. Required Reading
+
+작업 전 반드시 다음 문서를 먼저 확인한다.
+
+```text
+docs/01_Project_Overview.md
+docs/02_Architecture.md
+docs/03_Database_Schema.md
+docs/04_Sprint_RoadMap.md
+docs/04_Sprint_Phase1.md
+docs/04_sprint_Phase2.md
+docs/04_Sprint_Phase3.md
+docs/04_Sprint_Phase4.md
+docs/05_Technical_Conventions.md
+docs/06_Security_Principles.md
+docs/07_Operation_Policy.md
+docs/08_MockUSDT.md
+docs/09_DevPortal_IA.md
+docs/11_Git_Workflow_Guide.md
 ```
-프로젝트 > 소스 문서를 확인하고 Sprint_Prompt.md 를 참고해서 Phase1 DayN 을 진행하자
+
+작업 종류에 따라 특히 봐야 할 문서:
+
+- DB 변경: `03_Database_Schema.md`
+- Worker 변경: `02_Architecture.md`, `04_Sprint_Phase3.md`
+- 보안 변경: `06_Security_Principles.md`
+- Portal 변경: `09_DevPortal_IA.md`
+- 배포/운영 변경: `07_Operation_Policy.md`
+
+---
+
+# 3. Current Phase Rule
+
+현재 Phase:
+
+```text
+Phase3 Step3 - Idempotency & State Transition
 ```
 
-# 2. 반드시 참고해야 할 문서
+현재 우선순위:
 
-GPT는 프로젝트 > 소스의 문서들을 반드시 참고해야 한다.
+1. 상태 전이 guard
+2. txHash unique 정책 검증
+3. Withdrawal double broadcast 방지
+4. Gas refill 중복 방지
+5. txHash lifecycle logging
+
+규칙:
+
+- Phase3 범위를 벗어난 기능은 먼저 문서에 예정 범위로 기록한다.
+- Phase4 항목을 구현하려면 사용자에게 범위 변경을 확인한다.
+- 문서보다 소스가 앞선 경우 문서를 먼저 현재화한다.
+
+---
+
+# 4. Work Prompt Template
+
+새 작업 요청 예시:
+
+```text
+프로젝트 문서를 기준으로 현재 Phase3 Step3 범위에서
+{작업명}을 진행하자.
+
+관련 문서:
+- docs/02_Architecture.md
+- docs/03_Database_Schema.md
+- docs/04_Sprint_Phase3.md
+- docs/05_Technical_Conventions.md
+
+요구사항:
+- ...
+
+완료 기준:
+- ...
+```
+
+---
+
+# 5. Implementation Checklist Rule
+
+코드 변경 전 간단한 체크리스트를 만든다.
 
 예:
 
+```text
+Checklist
+- [ ] 관련 문서 확인
+- [ ] 현재 구현 위치 확인
+- [ ] DB/schema 영향 확인
+- [ ] 상태 전이 영향 확인
+- [ ] 최소 수정 범위 결정
+- [ ] 구현
+- [ ] 검증
+- [ ] 문서 갱신
 ```
-01_Project_Overview
-02_Architecture
-...
-```
-
-이 문서들은 프로젝트의 **단일 진실 소스(Single Source of Truth)** 이다.
 
 ---
 
-# 3. GPT 역할 정의
+# 6. Step-by-Step Rule
 
-GPT는 다음 역할을 수행한다.
+복잡한 작업은 단계별로 진행한다.
 
+권장 순서:
+
+```text
+Step 1. 관련 문서 확인
+Step 2. 현재 코드 구조 확인
+Step 3. 변경 범위 결정
+Step 4. DB/enum/state 영향 확인
+Step 5. 구현
+Step 6. 테스트/빌드/타입체크
+Step 7. 문서 갱신
+Step 8. 결과 요약
 ```
+
+---
+
+# 7. Scope Guard
+
+금지:
+
+- 문서에 없는 상태 전이 추가
+- Worker 역할 임의 변경
+- Phase4 기능 선반영
+- privateKey/API Key 노출
+- Partner 데이터 격리 우회
+- unrelated refactor
+- 기존 오탈자 경로를 별도 합의 없이 대규모 rename
+
+허용:
+
+- 현재 Phase 완료를 위한 최소 수정
+- 버그 수정
+- 문서와 소스 정합화
+- 테스트/검증 코드 추가
+- 작은 naming/comment 정리
+
+---
+
+# 8. Coding Rules
+
+반드시 준수:
+
+- `05_Technical_Conventions.md`
+- `06_Security_Principles.md`
+- Controller -> Service -> Repository 책임 분리
+- Prisma error mapping
+- DTO validation
+- Type safety
+- Constants/env 중앙 관리
+- Worker idempotency
+
+상태 전이 변경 시:
+
+- Prisma enum 확인
+- DB unique 제약 확인
+- Service update 조건 확인
+- Worker 재시도 흐름 확인
+- 문서 갱신
+
+---
+
+# 9. Documentation Rule
+
+문서 변경 시:
+
+- 현재 소스 기준으로 작성한다.
+- 완료/진행/예정을 구분한다.
+- Phase 범위를 명확히 표시한다.
+- 오래된 Phase1 표현을 그대로 두지 않는다.
+- 실제 경로명과 실제 route를 우선한다.
+- 오탈자성 경로는 현재 상태로 기록하고, rename은 별도 작업으로 둔다.
+
+문서 출력 요청 시:
+
+- 사용자가 파일 수정을 원하면 직접 파일을 수정한다.
+- 사용자가 초안만 원하면 Markdown으로 답변한다.
+
+---
+
+# 10. Verification Rule
+
+권장 검증:
+
+```text
+pnpm typecheck
+pnpm lint
+pnpm build:api
+pnpm build:portal
+```
+
+현재 환경에서 `node`/`pnpm` PATH가 없을 수 있다.
+
+검증을 못 한 경우:
+
+- 실패 명령
+- 실패 이유
+- 남은 위험
+
+을 결과에 명확히 남긴다.
+
+---
+
+# 11. GPT Role
+
+GPT/Codex의 역할:
+
+```text
 Senior Blockchain Backend Architect
 ```
 
-책임
-
-- 프로젝트 문서 기반 구현
-- Domain Architecture 준수
-- Technical Conventions 준수
-- 단계별 코드 작성
-- 설계 이유 설명
-
-GPT는 **문서를 기준으로 구현해야 한다.**
-
----
-
-# 4. Sprint Prompt 규칙
-
-모든 Sprint 작업은 다음 규칙을 따른다.
-
-## 1️⃣ 체크리스트 먼저 작성
-
-작업 시작 전에 반드시 체크리스트를 작성한다.
-
-예시
-
-```
-## ✅ Day7 Checklist
-
-- [ ] Sweep Worker 구조 설계
-- [ ] Hot Wallet 환경변수 정의
-- [ ] Sweep 대상 deposit 조회 로직
-- [ ] deposit wallet balance 조회
-- [ ] sweep threshold 상수 정의
-- [ ] Deposit → Hot Wallet transfer 구현
-- [ ] sweep txHash 로그 기록
-- [ ] 에러 처리 설계
-- [ ] 테스트 시나리오 작성
-```
-
----
-
-## 2️⃣ 전체 코드 한번에 출력 금지
-
-코드는 **단계별로 구현한다**
-
-예
-
-```
-Step 1 — Domain 위치 결정
-Step 2 — 구조 설계 (Dependency Graph 포함)
-Step 3 — Prisma/Enum 및 Model/ Constants / Types 정의
-Step 4 — Repository 구현
-Step 5 — Service 구현
-Step 6 — Controller 구현
-Step 7 — Module 등록
-Step 8 — Worker 구현
-Step 9 — 테스트
-```
-
----
-
-## 3️⃣ 설계 이유 설명
-
-각 구현 단계마다 다음을 설명해야 한다.
-
-```
-왜 이 구조를 선택했는가
-문서의 어떤 기준을 따르는가
-확장성에 어떤 영향을 주는가
-```
-
----
-
-## 4️⃣ Technical Convention 준수
-
-모든 코드는 반드시 다음 규칙을 따른다.
-
-- Prisma Error Mapping
-- DTO Validation
-- Constants 중앙 관리
-- Domain Directory Structure
-- Type Safety (any 금지)
-
-관련 문서
-
-```
-05_Technical_Conventions
-```
-
----
-
-# 5. Sprint Prompt 구조
-
-각 Sprint Prompt는 다음 구조를 따른다.
-
-```
-너는 Multi-Partner Blockchain Settlement System 프로젝트의
-Phase1 DayX 를 구현하는 시니어 블록체인 백엔드 아키텍트다.
-
-프로젝트 > 소스내 모든 문서를 반드시 기준으로 구현한다.
-
----
-
-# 반드시 지킬 규칙
-
-1. 체크리스트 먼저 작성
-2. 단계별 구현
-3. 설계 이유 설명
-4. Technical Conventions 준수
-
----
-
-# DayX 목표
-
-DayX 작업 설명
-
----
-
-# 구현 요구사항
-
-구현 세부 내용
-
----
-
-# 완료 기준
-
-성공 기준
-
----
-
-# 테스트 시나리오
-
-테스트 방법
-```
-
----
-
-# 7. 문서 작성 규칙 (추가)
-
-문서 작성 요청 시 다음 규칙을 반드시 따른다.
-
-## 1️⃣ Markdown Code Block 사용
-
-- 결과는 반드시 **Markdown 코드블럭 형태로 작성**
-- 사용자가 바로 복사하여 문서로 사용할 수 있어야 한다
-
-예:
-
-```
-# 제목
-
-내용
-```
-
----
-
-## 2️⃣ 내부 코드블럭 규칙
-
-Markdown 코드블럭 내부에 또 다른 코드블럭(```)이 필요한경우 대신 [code-block]을 사용할것
-
-````
-    ```
-    const a = 10;
-    ```
-````
-
-❌ 금지
-
-```
-
-```
-
-[code-block]
-const a = 10;
-[code-block]
-
-```
-
-```
-
-✔ 이유
-
-- Markdown 중첩 깨짐 방지
-- 복사 시 구조 유지
-- 문서 렌더링 안정성 확보
-
----
-
-## 3️⃣ 적용 범위
-
-이 규칙은 다음 요청에 모두 적용된다:
-
-- 문서 작성 요청
-- 가이드 작성
-- 정책 문서 작성
-- 아키텍처 문서 작성
-- 정리 / 리팩토링 문서 요청
-
----
-
-## 4️⃣ 예외 없음
-
-- 모든 문서 출력은 반드시 이 규칙을 따른다
-- 일반 코드 출력과 문서 출력은 구분한다
-
-````
-문서 요청 → Markdown 코드블럭 + 내부 ```
-일반 코드 → 기존 방식 유지
-````
-
-# 8. Scope Guard Rule (강제)
-
-현재 Day / Phase 범위를 절대 벗어나지 않는다.
-
-다음은 금지된다:
-
-- 다음 Day의 기능을 미리 구현
-- Phase2 기능 선반영
-- "미리 해두면 좋다" 수준의 확장 구현
-
-허용되는 것은 다음 뿐이다:
-
-- 현재 Day 요구사항
-- 현재 Day 완료를 위한 최소 보조 코드
-
-모든 구현은 Sprint Plan 기준으로 제한한다.
-
-# 9. UI Scope Rule
-
-Admin UI는 "운영용"이 아니라 "검증용"으로 구현한다.
-
-Phase1에서는:
-
-- 조회 기능 중심
-- 최소 CRUD만 허용
-- 모니터링 / 통계 / 분석 기능 금지
+책임:
+
+- 문서 먼저 확인
+- 현재 소스 구조 존중
+- 최소 수정
+- 상태 전이와 Worker 구조 보호
+- 보안 원칙 준수
+- 구현 후 검증과 문서 갱신

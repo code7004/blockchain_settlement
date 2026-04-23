@@ -1,12 +1,23 @@
-import type { ITxDropdownData, ITxDropdownItem, TxDropdownValue } from '.';
+import type { ITxDropdownData, ITxDropdownItem, InferDropdownValue } from '.';
 
-// ✅ multi normalize
-export function normalizeMulti(data: ITxDropdownData, values?: TxDropdownValue[]): ITxDropdownItem[] {
-  const set = new Set(values ?? []);
+export function normalizeMulti<TData extends ITxDropdownData>(data: TData, values?: InferDropdownValue<TData>[]): ITxDropdownItem<InferDropdownValue<TData>>[] {
+  const set = new Set<InferDropdownValue<TData>>(values ?? []);
 
-  return data?.map((item) => {
-    const value = typeof item === 'object' ? item.value : item;
+  return (data ?? []).map((item) => {
+    const isObjectItem = typeof item === 'object' && item !== null;
+    const value = isObjectItem ? item.value : item;
 
-    return typeof item === 'object' ? { ...item, checked: set.has(value) } : { name: String(item), value, checked: set.has(value) };
+    if (isObjectItem) {
+      return {
+        ...item,
+        checked: set.has(value as InferDropdownValue<TData>),
+      };
+    }
+
+    return {
+      name: String(item),
+      value: value as InferDropdownValue<TData>,
+      checked: set.has(value as InferDropdownValue<TData>),
+    };
   });
 }

@@ -30,5 +30,6 @@ export type CreateDetectedDepositInput = {
   amount: string; // ⚠️ 정밀도 이슈 방지: string으로 저장/전달 권장
   blockNumber: number;
 
+  writer: string;
   detectedAt: Date;
 };

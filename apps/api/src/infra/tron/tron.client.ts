@@ -84,7 +84,6 @@ export class TronClient {
   // -------------------------------
   // ADDRESS
   // -------------------------------
-
   hexToBase58(hex: string): string {
     return this.tronWeb.address.fromHex(hex);
   }
@@ -140,5 +139,47 @@ export class TronClient {
     }
 
     return result.txid;
+  }
+
+  // tron.service.ts
+
+  async waitForConfirm(txId: string, options?: { timeoutMs?: number; intervalMs?: number }): Promise<void> {
+    const timeoutMs = options?.timeoutMs ?? 60_000; // 최대 60초
+    const intervalMs = options?.intervalMs ?? 2_000; // 2초 polling
+
+    const start = Date.now();
+
+    while (true) {
+      try {
+        const tx = await this.tronWeb.trx.getTransactionInfo(txId);
+
+        // 아직 block에 포함 안됨
+        if (!tx || !tx.id) {
+          // noop
+        } else {
+          // 성공 여부 체크
+          if (tx.receipt) {
+            const result = tx.receipt.result;
+
+            if (result === 'SUCCESS') {
+              return;
+            }
+
+            if (result === 'FAILED' || result === 'OUT_OF_ENERGY') {
+              throw new Error(`TX failed: ${result}`);
+            }
+          }
+        }
+      } catch (err: unknown) {
+        void err;
+      }
+
+      // timeout 체크
+      if (Date.now() - start > timeoutMs) {
+        throw new Error(`waitForConfirm timeout txId=${txId}`);
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
   }
 }

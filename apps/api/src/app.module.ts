@@ -14,14 +14,17 @@ import { BlockChainModule } from './domains/blockchain/blockchain.module';
 import { CallbackTestModule } from './domains/callback-test/callback-test.module';
 import { CallbackAdaminModule, CallbackApiModule } from './domains/callback/callback.module';
 import { DepositAdminModule, DepositApiModule } from './domains/deposit/deposit.module';
+import { ExceptionLogModule } from './domains/exception-log/exception-log.module';
 import { MemberAdminModule } from './domains/member/member.module';
 import { MonitorModule } from './domains/monitor/monitor.module';
+import { OpenAiModule } from './domains/openai/openai.module';
+import { SweepModule } from './domains/sweep/sweep.module';
 import { WalletAdminModule, WalletApiModule } from './domains/wallet/wallet.module';
 import { WithdrawalAdminModule, WithdrawalApiModule } from './domains/withdrawal/withdrawal.module';
 import { WorkerModule } from './worker/worker.module';
 
 const CommonModules = [ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env', '../../.env'] }), EnvModule, PrismaModule, LoggerModule, WorkerModule];
-export const AdminModules = [
+export const PortalModules = [
   HealthAadminModule,
   AuthAdminModule,
   MemberAdminModule,
@@ -31,14 +34,17 @@ export const AdminModules = [
   DepositAdminModule,
   WithdrawalAdminModule,
   CallbackAdaminModule,
+  SweepModule,
   CallbackTestModule,
   BalanceAdminModule,
+  ExceptionLogModule,
   BlockChainModule,
   MonitorModule,
+  OpenAiModule,
 ];
 export const ApiModules = [HealthApiModule, PartnerApiModule, UserApiModule, WalletApiModule, DepositApiModule, WithdrawalApiModule, CallbackApiModule, BalanceApiModule];
 @Module({
-  imports: [...CommonModules, ...AdminModules, ...ApiModules],
+  imports: [...CommonModules, ...PortalModules, ...ApiModules],
   controllers: [AppController],
   providers: [AppService],
 })

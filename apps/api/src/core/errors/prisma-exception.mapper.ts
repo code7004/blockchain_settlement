@@ -56,6 +56,11 @@ export function mapPrismaError(error: unknown): never {
           code: 'INVALID_RELATION',
           message: 'Invalid relation request',
         });
+      case 'P2023':
+        throw new BadRequestException({
+          code: 'INVALID_UUID',
+          message: meta.message,
+        });
     }
   }
 

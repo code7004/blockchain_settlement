@@ -43,6 +43,7 @@ generated/prisma
 # =========================
 # OS / Editor
 # =========================
+.codex/*
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -52,6 +53,7 @@ generated/prisma
 *.njsproj
 *.sln
 *.sw?
+AGENTS.md
 
 # =========================
 # Runtime / Misc

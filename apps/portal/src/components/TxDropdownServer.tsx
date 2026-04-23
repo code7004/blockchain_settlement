@@ -5,6 +5,8 @@ import { useConfig } from '@/store/hooks/useConfig';
 import { useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
 
+const SeverTypes = Object.values(SERVER_TYPE);
+
 export const TxDropdownServer = (props: Omit<ITxDropdownProps, 'data'>) => {
   const config = useConfig();
 
@@ -13,7 +15,7 @@ export const TxDropdownServer = (props: Omit<ITxDropdownProps, 'data'>) => {
   const dispatch = useDispatch();
 
   useEffect(() => {
-    dispatch(configAction.changeServer(server));
+    dispatch(configAction.changeServer(server as string));
   }, [server, dispatch]);
 
   const hdChangeServer = (server: string | undefined) => {
@@ -22,5 +24,5 @@ export const TxDropdownServer = (props: Omit<ITxDropdownProps, 'data'>) => {
     dispatch(configAction.changeServer(server));
   };
 
-  return <TxFieldDropdown {...props} value={server} data={[SERVER_TYPE.TEST, SERVER_TYPE.LIVE]} onChangeText={hdChangeServer} warning={config.baseUrl} />;
+  return <TxFieldDropdown {...props} value={server as SERVER_TYPE} data={SeverTypes} onChangeText={hdChangeServer} warning={config.baseUrl} />;
 };

@@ -47,6 +47,7 @@ export class DepositService {
       amount: input.amount,
 
       blockNumber: input.blockNumber,
+      writer: this.env.name,
 
       detectedAt: new Date(),
     });

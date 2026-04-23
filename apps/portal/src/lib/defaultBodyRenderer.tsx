@@ -16,8 +16,21 @@ export function defaultBodyRenderer<T extends Record<string, any> = Record<strin
       } catch {
         return props.value as ReactNode;
       }
+    case 'assetsSnapshot':
+      try {
+        return <TxTooltip tip={<TxJsonTree data={props.value} />}>{'{ ... }'}</TxTooltip>;
+      } catch {
+        return props.value as ReactNode;
+      }
     case 'amount':
       return props.value ? Number(props.value).toLocaleString() : 0;
+    case 'txHash':
+      return (
+        <a href={`https://nile.tronscan.org/#/transaction/${props.value}`} target="_blank" className="text-blue-500 text-sm underline">
+          {props.value}
+        </a>
+      );
+
     case 'createdAt':
     case 'apiKeyCreatedAt':
     case 'lastAttemptAt':
@@ -25,7 +38,6 @@ export function defaultBodyRenderer<T extends Record<string, any> = Record<strin
     case 'confirmedAt':
     case 'detectedAt':
       return dayjs(props.value as string).format('YYYY-MM-DD HH:mm:ss');
-
     default:
       return props.value as ReactNode;
   }

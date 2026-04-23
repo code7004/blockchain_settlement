@@ -24,6 +24,7 @@
     "db:format": "pnpm --filter @packages/prisma format",
     "db:generate": "pnpm --filter @packages/prisma generate",
     "db:migrate": "pnpm --filter @packages/prisma migrate",
+    "db:deploy": "pnpm --filter @packages/prisma deploy",
     "dev": "pnpm -r --parallel dev",
     "dev:api": "pnpm --filter @cws/api dev",
     "dev:portal": "pnpm --filter @cws/portal dev",

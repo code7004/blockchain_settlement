@@ -5,6 +5,7 @@ export enum WithdrawalStatus {
   REQUESTED = 'REQUESTED',
   APPROVED = 'APPROVED',
   BROADCASTED = 'BROADCASTED',
+  CONFIRMED = 'CONFIRMED',
   FAILED = 'FAILED',
 }
 

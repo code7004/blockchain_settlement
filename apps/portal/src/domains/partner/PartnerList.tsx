@@ -113,7 +113,7 @@ export default function AdminPartnerList({ pageRole, tableOptions }: { pageRole:
         {isLoading ? (
           <TxLoading className="flex-1 h-full" visible />
         ) : (
-          <TxCoolTable className="w-full text-sm text-center" data={data.data} renderBody={customRederBody} options={tableOptions} onChangeCell={hdChangeCell} onSelections={_selections} useCheckBox useRowSelect />
+          <TxCoolTable className="w-full text-sm text-center" data={data.data} renderBody={customRederBody} options={tableOptions} onChangeCell={hdChangeCell} onSelections={_selections} useCheckBox useRowSelect useMultiSelect />
         )}
       </TxCoolTableScroller>
       <TxModal visible={modal.isOpen} onExit={() => void (_modal({ isOpen: false, apiKey: '' }), _copied(false))}>

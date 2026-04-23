@@ -1,70 +1,67 @@
-## 1. 목표
+# MockUSDT Guide
 
-- Tron Nile Testnet에서 TRC20(MockUSDT) 컨트랙트 배포
-- decimals = 6 설정
-- 초기 발행량 생성
-- IDE에서 함수 호출 테스트
-- 2부 Deposit Watcher 실습 준비 완료
+> 개발/테스트 환경에서 TRC20 흐름을 검증하기 위한 MockUSDT 문서
+>
+> 운영 환경은 실제 TRC20 USDT를 사용하며, 본 문서는 Dev/Testnet 전용이다.
 
 ---
 
-## 2. 사전 준비
+## 1. Purpose
 
-### 2.1 TronLink 설치
+MockUSDT는 실제 자산을 사용하지 않고 다음 흐름을 검증하기 위한 테스트 토큰이다.
 
-[Chrome 확장 프로그램에서 TronLink 설치](https://chromewebstore.google.com/detail/tronlink/ibnejdfjmmkpcnlpebklmnkoeoihofec?hl=ko&gl=US)
+- Wallet 주소 발급
+- TRC20 Transfer event 발생
+- DepositWorker 감지
+- Deposit DETECTED 생성
+- ConfirmWorker 확정
+- Callback 생성/전송
+- SweepJob 생성
+- SweepWorker token transfer
 
-![](https://velog.velcdn.com/images/code7004/post/39b9b879-28b1-45ad-bfd4-e54ace5a5a59/image.png)
+기본 정책:
 
-- 지갑 생성
-- Mnemonic 백업
-- 비밀번호 설정
-
-![](https://velog.velcdn.com/images/code7004/post/6e565730-124c-4809-9ab0-443d9a8d6de7/image.png)
+- Network: Tron Nile Testnet
+- Token name: MockUSDT
+- Symbol: mUSDT
+- Decimals: 6
 
 ---
 
-### 2.2 네트워크 변경
+## 2. System Integration Points
 
-TronLink 상단 네트워크를
-![](https://velog.velcdn.com/images/code7004/post/941b064a-3b8a-4ed6-9414-d0965199ec41/image.png)
+API/Worker가 사용하는 env:
 
+```text
+TRON_FULL_HOST
+TRONGRID_API_KEY
+TRON_USDT_CONTRACT
+TOKEN_SYMBOL
+HOT_WALLET_ADDRESS
+HOT_WALLET_PRIVATE_KEY
+GAS_TANK_ADDRESS
+GAS_TANK_PRIVATE_KEY
 ```
-Nile Testnet
+
+MockUSDT 배포 후 반드시 설정할 값:
+
+```text
+TOKEN_SYMBOL=mUSDT
+TRON_USDT_CONTRACT={MockUSDT contract address}
+TRON_FULL_HOST={Nile endpoint}
 ```
 
-으로 변경
+주의:
+
+- Dev 환경의 MockUSDT contract를 Live 환경에 설정하면 안 된다.
+- Live 환경의 USDT contract를 Dev 환경에서 테스트 용도로 사용하면 안 된다.
+- Phase3 Safety Guard에서 chain/token/env 매핑을 강제해야 한다.
 
 ---
 
-### 2.3 Nile Faucet에서 TRX 받기
+## 3. MockUSDT Contract
 
-- TronLink 주소 복사
-- [Nile Faucet에서 TRX 요청](https://nileex.io/join/getJoinPage)
-- 지갑에 TRX 도착 확인
-
-![](https://velog.velcdn.com/images/code7004/post/1440c17a-96d6-462a-802b-0f91b1bb0409/image.png)
-
----
-
-## 3. Tron IDE 접속
-
-[https://ide.tron.network]() 접속
-
-### 3.1 Workspace 생성
-
-- 새 Workspace 생성
-  ![](https://velog.velcdn.com/images/code7004/post/b6ee5d07-1c7e-4a1b-a9c0-19f4d69d3e44/image.png)
-  ![](https://velog.velcdn.com/images/code7004/post/caac0e23-04d1-4bd9-ad00-a518c9ea4015/image.png)
-- contracts 폴더에 기존 파일 제거
-  ![](https://velog.velcdn.com/images/code7004/post/ac02d3e3-911e-4854-8d07-49aa1983d39e/image.png)
-- contracts 폴더에 `MockUSDT.sol` 파일 생성
-
----
-
-## 4. MockUSDT 컨트랙트 코드
-
-```ts
+```solidity
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
@@ -114,227 +111,132 @@ contract MockUSDT {
 }
 ```
 
----
+주의:
 
-## 5. Solidity 컴파일
-
-왼쪽 메뉴에서 Solidity 아이콘 클릭
-
-- Compiler Version: 0.8.x
-- Compile MockUSDT.sol
-
-컴파일 성공 메시지 확인
-
-> 이미지: Solidity Compiler 성공 화면
+- 위 코드는 테스트용이다.
+- 실제 운영 토큰 대체물이 아니다.
+- 배포 전 컴파일 결과를 반드시 확인한다.
 
 ---
 
-## 6. Deploy 설정
+## 4. Deploy Steps
 
-왼쪽 메뉴 → Deploy & Run Transactions
+1. TronLink 설치
+2. Nile Testnet 선택
+3. Nile Faucet에서 TRX 수령
+4. Tron IDE 접속
+5. `MockUSDT.sol` 생성
+6. Solidity 0.8.x로 compile
+7. `Injected TronWeb` 선택
+8. constructor `initialSupply` 입력
+9. deploy
+10. contract address 확인
 
-### 6.1 Environment 설정
+권장 initialSupply:
 
-```
-Injected TronWeb
-```
-
-확인
-
-- Network: TRON (nile) network
-- Account: TronLink 주소
-- TRX 잔액 표시
-
-> 이미지: Deploy & Run 설정 화면
-
----
-
-### 6.2 initialSupply 입력
-
-![](https://velog.velcdn.com/images/code7004/post/1997e387-d32c-4293-876e-589321c94351/image.png)
-
-Constructor 입력칸에:
-
-```
+```text
 1000000000000
 ```
 
-설명:
+의미:
 
-```
+```text
 1,000,000 * 10^6
 ```
 
-(decimals = 6 기준)
-
 ---
 
-### 6.3 Deploy 클릭
+## 5. TronLink Token Registration
 
-![](https://velog.velcdn.com/images/code7004/post/24a29537-c0bf-4ee7-a8a1-da33aea5aa5e/image.png)
+배포 후 TronLink에서 Custom Token으로 추가한다.
 
-- TronLink 팝업 확인
-- 수수료 승인
-- 배포 완료
+입력:
 
----
-
-## 7. 배포 확인
-
-![](https://velog.velcdn.com/images/code7004/post/b6332cbf-dc9e-43a9-bbaa-e231c2b85304/image.png)
-
-배포 성공 시:
-
-- Deployed Contracts 영역에 컨트랙트 인스턴스 생성
-- Contract Address 표시
-
-이 주소가:
-
-```
-CONTRACT_ADDRESS
-```
-
-이다.
-
-> 이미지: Deployed Contracts 화면
-
----
-
-## 8. 함수 테스트
-
-### 8.1 decimals()
-
-결과:
-
-```
-6
-```
-
----
-
-### 8.2 totalSupply()
-
-결과:
-
-```
-1000000000000
-```
-
----
-
-### 8.3 balanceOf(내 주소)
-
-결과:
-
-```
-1000000000000
-```
-
-정상적으로 초기 발행량이 내 지갑에 할당되었음을 확인.
-![](https://velog.velcdn.com/images/code7004/post/0547f6a4-3b57-413e-9354-7a62f559213f/image.png)
-
----
-
-## 9. TronLink에 MockUSDT 자산 추가하기
-
-배포한 MockUSDT는 자동으로 자산 목록에 표시되지 않는다.
-
-따라서 TronLink에서 직접 Custom Token으로 추가해야 한다.
-
----
-
-### 9-1. Custom Token 추가
-
-Assets 화면에서 **추가(+) 버튼** 클릭
-
-![](https://velog.velcdn.com/images/code7004/post/e5bb72a7-53c7-4e96-8f97-0c7b7835e5be/image.png)
-
-`Custom Token` 선택
-
-![](https://velog.velcdn.com/images/code7004/post/8064f4d6-8bf4-43b0-8e20-eb215dea1eb9/image.png)
-
-배포한 Contract Address 입력
-
-- Contract Address: 배포한 MockUSDT 주소
+- Contract Address: 배포된 MockUSDT 주소
 - Network: Nile Testnet
 
-정상이라면 Name / Symbol / Decimals가 자동 로딩된다.
+정상 등록 시:
 
-Confirm 클릭
+- Name: MockUSDT
+- Symbol: mUSDT
+- Decimals: 6
 
 ---
 
-### 9-2. 자산 목록 확인
+## 6. Deposit Test Flow
 
-추가 완료 후 Assets 목록에 `mUSDT`가 표시된다.
+1. Portal 또는 Partner API에서 Wallet 생성
+2. 생성된 Deposit Wallet address 확인
+3. TronLink에서 mUSDT 전송
+4. DepositWorker가 Transfer event 감지
+5. DB에 Deposit DETECTED 생성
+6. ConfirmWorker가 CONFIRMED 전환
+7. CallbackLog 생성
+8. SweepJob 생성
+9. SweepWorker가 Deposit Wallet -> Hot Wallet 전송
+10. ConfirmWorker가 SweepLog CONFIRMED 처리
 
-![](https://velog.velcdn.com/images/code7004/post/78e9bb45-2256-4758-baa3-95764342aeaa/image.png)
+---
 
-잔액은 decimals(6) 기준으로 자동 변환되어 표시된다.
+## 7. Amount Conversion
+
+MockUSDT decimals는 6이다.
 
 예:
 
+```text
+UI amount: 100 mUSDT
+raw amount: 100 * 10^6 = 100000000
 ```
-1000000000000 → 1,000,000 mUSDT
-```
+
+현재 `TronService.transferToken()`은 token decimals를 조회하고 내부 raw amount를 계산한다.
+
+주의:
+
+- amount precision 정책은 token decimals와 일치해야 한다.
+- 운영 USDT도 TRC20 기준 decimals 6이다.
 
 ---
 
-### 9-3. mUSDT 전송 테스트
+## 8. Operational Notes
 
-자산 목록에서 `mUSDT` 클릭 후 `Send`
+Dev/Testnet에서 필요한 지갑:
 
-![](https://velog.velcdn.com/images/code7004/post/a788a84a-63c5-4fa2-aab8-c3c605b75459/image.png)
+- 테스트 송신 지갑
+- Deposit Wallet
+- Hot Wallet
+- Gas Tank Wallet
 
-여기서:
+각 지갑에 필요한 자산:
 
-- To: Sender 지갑 주소
-- Amount: 100 (예시)
-
-전송 시 실제로는 내부적으로:
-
-```
-100 * 10^6 = 100000000
-```
-
-이 값이 컨트랙트에 전달된다.
+- 테스트 송신 지갑: mUSDT, TRX
+- Deposit Wallet: mUSDT 입금 후 Sweep 전 TRX 필요
+- Hot Wallet: sweep 수신
+- Gas Tank Wallet: refill용 TRX
 
 ---
 
-## 🔎 여기서 중요한 이해
+## 9. Troubleshooting
 
-TronLink는 단순 UI일 뿐이다.
+Deposit이 감지되지 않는 경우:
 
-실제로 일어나는 일은:
+- `TRON_USDT_CONTRACT`가 배포 contract와 일치하는지 확인
+- `TRON_FULL_HOST`가 Nile endpoint인지 확인
+- Transfer event가 실제 발생했는지 확인
+- DepositWorker log 확인
+- `runtime/watcher-state.json` cursor 확인
 
-```
-transfer(address,uint256)
-```
+Sweep이 실패하는 경우:
 
-함수가 호출되고
+- Deposit Wallet TRX balance 확인
+- Gas Tank TRX balance 확인
+- HOT_WALLET_ADDRESS 확인
+- TRON_USDT_CONTRACT 확인
+- SweepLog status/reason 확인
 
-```
-Transfer(address indexed from, address indexed to, uint256 value)
-```
+Callback이 실패하는 경우:
 
-이벤트가 발생한다.
-
-이 이벤트가 이후 Deposit Watcher에서 사용된다.
-
-## 10. 이번 작업에서 이해한 핵심
-
-- Tron IDE에서 Solidity 배포 흐름
-- Injected TronWeb = TronLink 연동
-- TRC20 이벤트 구조
-- decimals 처리 방식
-- initialSupply 계산 방식
-- Transfer 이벤트 발생 원리
-
----
-
-## 11. 다음 단계
-
-- TronWeb로 Contract 연결
-- receipt.log 구조 분석
-- topics decode 실습
-- Mini Deposit Watcher 구현
+- partner callbackUrl 확인
+- callbackSecret 확인
+- partner endpoint 응답 코드 확인
+- CallbackLog attemptCount/status 확인

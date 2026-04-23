@@ -1,20 +1,37 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { ReactNode } from 'react';
 import type { DeepPartial, ITxDropdownMultiProps, TxDropdownTheme } from '..';
 
-// 드롭다운 아이템 타입
-export interface ITxDropdownItem {
+/**
+ * -------------------------------------------------------
+ * 🔹 기본 Item 타입
+ * -------------------------------------------------------
+ */
+export interface ITxDropdownItem<T = unknown> {
   name: string;
-  value?: string | number | boolean | ITxDropdownItem | null;
+  value?: T;
   checked?: boolean;
 }
 
-// 데이터 타입 (문자, 숫자, 객체 가능)
-export type ITxDropdownData = ReadonlyArray<string | number | boolean | ITxDropdownItem>;
+/**
+ * -------------------------------------------------------
+ * 🔹 Data 정의 (원본 입력 타입)
+ * -------------------------------------------------------
+ */
+export type ITxDropdownData = ReadonlyArray<string | number | boolean> | ReadonlyArray<ITxDropdownItem<any>>;
 
-// value 타입 별도 분리
-export type TxDropdownValue = string | number | boolean | ITxDropdownItem | null | undefined;
+/**
+ * -------------------------------------------------------
+ * 🔹 🔥 핵심: Data 기반 Value 추론
+ * -------------------------------------------------------
+ */
+export type InferDropdownValue<TData> = TData extends ReadonlyArray<infer U> ? (U extends ITxDropdownItem<infer V> ? V : U) : never;
 
-// ✅ Item Props
+/**
+ * -------------------------------------------------------
+ * 🔹 Item Props
+ * -------------------------------------------------------
+ */
 export interface ITxDropdownItemProps extends ITxDropdownItem, React.HTMLAttributes<HTMLDivElement> {
   checked?: boolean;
   focused: boolean;
@@ -22,8 +39,12 @@ export interface ITxDropdownItemProps extends ITxDropdownItem, React.HTMLAttribu
   theme?: DeepPartial<typeof TxDropdownTheme>;
 }
 
-// ✅ 공통 Props
-export interface ITxDropdownBaseProps {
+/**
+ * -------------------------------------------------------
+ * 🔹 Base Props
+ * -------------------------------------------------------
+ */
+export interface ITxDropdownBaseProps<TValue = any> {
   warning?: string;
   error?: string;
   data: ITxDropdownItem[];
@@ -37,33 +58,46 @@ export interface ITxDropdownBaseProps {
   locale?: (item: string) => string;
   renderItem?: (props: ITxDropdownItemProps) => ReactNode;
 
-  /** 내부 공통 change handler */
-  onChangeInternal?: (items: ITxDropdownItem[]) => void;
+  onChangeInternal?: (items: ITxDropdownItem<TValue>[]) => void;
 }
 
-export interface ITxDropdownProps {
-  value?: TxDropdownValue;
-  data: ITxDropdownData | undefined;
+/**
+ * -------------------------------------------------------
+ * 🔹 🔥 메인 Props (infer 적용)
+ * -------------------------------------------------------
+ */
+export interface ITxDropdownProps<TData extends ITxDropdownData = ITxDropdownData> {
+  value?: InferDropdownValue<TData>;
+  data: TData | undefined;
+
   warning?: string;
   error?: string;
   className?: string;
   fixedHead?: string;
   defaultHead?: string;
   addNoChoiceItem?: boolean;
-  maxHeight?: number | string;
 
   locale?: (k: string) => string;
 
-  onChangeValue?: (item: ITxDropdownItem) => void;
+  // 🔥 자동 추론됨
+  onChangeValue?: (item: ITxDropdownItem<InferDropdownValue<TData> | undefined>) => void;
+
   onChangeText?: (value: string | undefined) => void;
   onChangeNumb?: (value: number | undefined) => void;
   onChangeBool?: (value: boolean | undefined) => void;
 }
 
-export interface ITxFieldDropdownMultiProps extends ITxDropdownMultiProps {
+/**
+ * -------------------------------------------------------
+ * 🔹 Field Props
+ * -------------------------------------------------------
+ */
+export interface ITxFieldDropdownProps<TData extends ITxDropdownData = ITxDropdownData> extends ITxDropdownProps<TData> {
   caption?: string;
 }
 
-export interface ITxFieldDropdownProps extends ITxDropdownProps {
+export interface ITxFieldDropdownMultiProps<TData extends ITxDropdownData = ITxDropdownData> extends ITxDropdownMultiProps<TData> {
   caption?: string;
 }
+
+/* eslint-enable @typescript-eslint/no-explicit-any */

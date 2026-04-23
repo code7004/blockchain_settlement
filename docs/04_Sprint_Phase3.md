@@ -1,156 +1,276 @@
-# 🚀 Phase3 — Production Environment Setup
+# Phase 3 - Production Readiness
 
-## 🎯 목표
-
-- Live / Dev 환경 완전 분리
-- 실제 운영 가능한 안정적인 인프라 구축
-- Admin Portal에서 환경 선택 기반 운영 지원
+> 현재 판정: Step3 진행 중
+>
+> 목표: 운영 가능한 트랜잭션 엔진, 환경 분리, 로그/안전성 기반을 확보한다.
 
 ---
 
-## Step 1. Infrastructure
+## 1. Phase Definition
 
-- [ ] Live Server 구축 (Mainnet + USDT)
-- [ ] Dev Server 구축 (Nile + mUSDT)
-- [ ] CloudFront (Live Admin UI)
-- [ ] Domain 및 HTTPS 구성
-- [ ] CORS 정책 확정
+Phase3는 기능 추가보다 운영 가능한 구조 정리를 우선한다.
 
----
+핵심:
 
-## Step2. Environment & Security
-
-- [ ] ENV 분리 (dev / prod)
-- [ ] CHAIN 고정 및 검증 로직 추가
-- [ ] Token ↔ Chain 매칭 검증
-- [ ] Secret 분리 (JWT / PrivateKey / API Key)
-- [ ] GAS_TANK 환경별 분리
+- Transaction lifecycle 정리
+- Sweep broadcast -> confirm 구조 확립
+- Worker 구조 단순화
+- txHash 기반 멱등성 검증
+- 상태 전이 제한
+- Gas refill 안정화
+- Dev / Live 환경 분리
+- 로그와 배포 정책 정리
+- Safety Guard 도입
 
 ---
 
-## Step3. Database
+## 2. Step Status
 
-- [ ] dev_db / prod_db 분리 운영 확인
-- [ ] Prisma schema 동기화 전략 정의
-- [ ] Migration 정책 수립 (manual or script)
-- [ ] prod DB 접근 제한 (보안 설정)
+### Step1. Transaction Lifecycle
 
----
+상태: 완료
 
-## Step4. Backend
+- [x] TxStatus 기준 상태 개념 도입
+- [x] Deposit / Withdrawal / Sweep 상태 매핑 정리
+- [x] Sweep에서 단순 SUCCESS 표현 제거
+- [x] BROADCASTED / CONFIRMED 구분
 
-- [ ] sweep log 테이블 or 로깅 구현
-- [ ] error/event log 시스템 구축
-- [ ] worker 상태 로그 강화
-- [ ] health check endpoint 추가
+### Step2. Sweep & Confirm 구조
 
----
+상태: 완료
 
-## Step5. Admin Portal
+Sweep:
 
-- [ ] Environment 선택 드롭다운 (TEST / PROD)
-- [ ] API baseURL 동적 변경
-- [ ] ENV 시각적 표시 (색상 / 배너)
-- [ ] PROD 액션 confirm UI
-- [ ] Token 자동 필터링
+- [x] SweepWorker는 token transfer broadcast 담당
+- [x] SweepLog 중심 상태 관리
+- [x] SweepJob은 queue 역할로 분리
+- [x] terminal log 존재 시 job 제거
+- [x] BROADCASTED 상태를 chain confirm 전 단계로 유지
 
----
+Confirm:
 
-## Step6. Dev Portal / Guide
+- [x] ConfirmWorker가 deposit confirm 처리
+- [x] ConfirmWorker가 sweep confirm 처리
+- [x] receipt 기반 SweepLog CONFIRMED / FAILED 처리
+- [x] chain fee 기록 기반 마련
 
-- [ ] DevConsole ENV 선택 기능 추가
-- [ ] mUSDT / USDT 테스트 가능
-- [ ] 문서 업데이트 (환경 선택 설명)
-- [ ] Callback retry 가이드 포함
+### Step3. Idempotency & State Transition
 
----
+상태: 진행 중
 
-## Step7. Monitoring & Logging
+구현됨:
 
-- [ ] 서버 로그 구조 정리 (error / event)
-- [ ] 트랜잭션 로그 기록
-- [ ] watcher 상태 로깅
-- [ ] block lag 확인 로그
+- [x] `Deposit.txHash @unique`
+- [x] `Withdrawal.txHash @unique`
+- [x] `CallbackLog.txHash @unique`
+- [x] `SweepJob.depositId @unique`
+- [x] `SweepLog.txHash @unique`
+- [x] SweepJob PROCESSING lock
+- [x] terminal SweepLog 확인
+- [x] BROADCASTED 중복 확인
 
----
+남은 작업:
 
-## Step8. Deployment
+- [ ] 도메인별 상태 전이 guard 명시화
+- [ ] Withdrawal double broadcast 방지 검증
+- [ ] Callback eventType 정책 정리
+- [ ] nullable txHash unique 정책 검토
+- [ ] Deposit / Sweep / Withdrawal transition test 작성
 
-- [ ] 서버 실행 구조 정리 (PM2 or Docker)
-- [ ] 배포 스크립트 작성
-- [ ] restart 전략 정의
-- [ ] 로그 파일 관리 정책
+기준 전이:
 
----
+```text
+Deposit:
+DETECTED -> CONFIRMED
+DETECTED -> FAILED
 
-## Step9. Safety
+Sweep:
+PENDING -> BROADCASTED -> CONFIRMED
+        \-> FAILED
+        \-> SKIPPED
 
-- [ ] test ↔ prod 환경 혼용 방지 로직
+Withdrawal:
+REQUESTED -> APPROVED -> BROADCASTED -> CONFIRMED
+                              \-> FAILED
+```
+
+### Step4. Gas & Resource Stabilization
+
+상태: 미완료
+
+구현됨:
+
+- [x] Sweep 전 Deposit Wallet TRX balance 확인
+- [x] TRX 부족 시 Gas Tank refill 시도
+- [x] Wallet에 `lastRefillAt`, `refillCount` 필드 존재
+
+남은 작업:
+
+- [ ] refill 중복 방지
+- [ ] wallet cooldown 적용
+- [ ] refill txHash 별도 로그 정책
+- [ ] GasRefillWorker 등록 여부 결정
+- [ ] Gas Tank balance monitoring
+
+### Step5. Logging
+
+상태: 일부 구현
+
+구현됨:
+
+- [x] AppLoggerService
+- [x] HttpLoggingInterceptor
+- [x] Worker logger
+- [x] SweepLog / CallbackLog / writer 필드 일부 활용
+
+남은 작업:
+
+- [ ] txHash lifecycle log 통합
+- [ ] structured error format
+- [ ] env / worker name / chain 포함
+- [ ] 민감 정보 redaction 검증
+- [ ] operation log / audit log 정책
+
+### Step6. Worker Structure
+
+상태: 완료 + 정리 필요
+
+현재 등록 worker:
+
+```text
+DepositWorker   -> detect
+ConfirmWorker   -> deposit confirm + sweep confirm
+CallbackWorker  -> callback retry
+SweepWorker     -> sweep broadcast
+ReclaimWorker   -> assets reclaim
+```
+
+정리 필요:
+
+- [ ] `recalim.worker.ts` 파일명 오탈자 정리 여부 결정
+- [ ] `GasRefillWorker` 등록 여부 결정
+
+### Step7. Infrastructure
+
+상태: 미완료
+
+- [ ] Live server 구축
+- [ ] Dev server 구축
+- [ ] CloudFront
+- [ ] Domain / HTTPS
+- [ ] CORS 운영 정책 확정
+
+현재 CORS:
+
+- localhost
+- `*.balletpay.net`
+- `https://balletpay.net`
+
+### Step8. Environment & Security
+
+상태: 일부 구현
+
+구현됨:
+
+- [x] EnvService
+- [x] required env 접근 시 missing env error
+- [x] JWT secret 분리
+- [x] wallet master key 기반 복호화
+- [x] hot wallet / gas tank env 접근
+
+남은 작업:
+
+- [ ] Dev / Live env lock
+- [ ] chain guard
+- [ ] token contract guard
+- [ ] endpoint 분리 정책
+- [ ] API Key / JWT secret 환경별 분리 검증
+- [ ] GAS_TANK 환경별 분리 검증
+
+### Step9. Database Strategy
+
+상태: 일부 완료
+
+구현됨:
+
+- [x] Prisma schema 확장
+- [x] migration history 존재
+- [x] dev/prod DB 분리 방향 문서화
+
+남은 작업:
+
+- [ ] dev DB / prod DB 물리 분리 확인
+- [ ] prod RDS 구축
+- [ ] migration 적용 정책
+- [ ] prod 직접 접근 제한
+- [ ] backup / snapshot / restore test
+- [ ] Deposit 조회 인덱스 검토
+
+### Step10. Monitoring
+
+상태: 초기 구조
+
+구현됨:
+
+- [x] MonitorModule
+- [x] txHash path 기반 monitor controller
+- [x] Portal placeholder
+
+남은 작업:
+
+- [ ] txHash lifecycle view
+- [ ] block lag
+- [ ] callback failure rate
+- [ ] sweep pending/broadcasted lag
+- [ ] dashboard metric 연결
+
+### Step11. Deployment
+
+상태: 미완료
+
+- [ ] PM2 실행 구조
+- [ ] API restart strategy
+- [ ] Portal build/deploy policy
+- [ ] log rotation
+- [ ] deploy script
+- [ ] rollback policy
+
+### Step12. Safety
+
+상태: 미완료
+
+- [ ] test/prod 환경 혼용 방지
 - [ ] 잘못된 chain 요청 차단
 - [ ] 잘못된 token 요청 차단
-- [ ] Chain/Token 강제 매핑
-- [ ] ENV Guard (서버)
-- [ ] EnvService 통합
-- [ ] Endpoint 분리
-- [ ] Admin ENV Lock
-- [ ] Key / JWT 분리
-- [ ] DB 접근 제한
+- [ ] ENV Guard
+- [ ] Admin ENV 표시
 - [ ] HealthCheck 강화
-- [ ] UI ENV 표시
 - [ ] 로그 ENV 포함
 
 ---
 
-## Step10. Database Strategy
+## 3. Completion Criteria
 
-- [ ] dev DB (EC2 PostgreSQL) 구축
-- [ ] prod DB (RDS PostgreSQL) 구축
-- [ ] dev / prod DB 물리적 분리 확인
-- [ ] DB 계정 및 권한 환경별 분리
-- [ ] RDS 보안 설정 (Private Subnet / SG 제한)
-- [ ] prod DB 외부 직접 접근 차단
-- [ ] Prisma env 분리 (DATABASE_URL_DEV / PROD)
-- [ ] migration 정책 수립 (dev → prod 수동 반영)
-- [ ] migration 적용 프로세스 검증
-- [ ] RDS 자동 백업 활성화
-- [ ] snapshot 및 복구 테스트
-- [ ] DB 연결 HealthCheck 구성
-- [ ] DB 장애 대응 전략 정의
+Phase3 완료 기준:
 
-※ prod DB는 안정성을 위해 RDS 사용, dev는 비용 절감을 위해 EC2 유지
-
-### RDS선택 이유
-
-1. 운영 부담 제거(장애복구 자동화)
-1. 백업, 복구 기본 제공 및 특정시점 복구 가능 (PITR)
-1. 고가용성, 장애발생시 자동 failover, 다운타임 최소화
-1. 보안
-1. 성능 튜닝 자동화 (storage auto scaling, IOPS 관리, 성능 인사이트 제공)
-1. 1인 개발 환경에서 현실적 장애 대응
-1. 비용관점 EC2 + Postgre 보다 1.5~ 2배 비용 증가 하지만 예측 비용 (약 100USD / M)
+- Dev / Live가 독립적으로 동작한다.
+- Deposit -> Confirm -> Callback -> Sweep -> Confirm 흐름이 정상 동작한다.
+- Sweep은 chain confirmation 기준으로 완료된다.
+- broadcast 실패/지연을 재처리하거나 추적할 수 있다.
+- txHash 기준 lifecycle 추적이 가능하다.
+- 상태 전이가 코드 레벨에서 제한된다.
+- Gas refill 중복이 방지된다.
+- 장애 발생 시 로그로 원인을 추적할 수 있다.
+- 배포/restart 절차가 문서화되어 있다.
 
 ---
 
-# 🧪 완료 기준
+## 4. Current Focus
 
-- Dev / Live 각각 독립적으로 정상 동작
-- Deposit → Confirm → Callback → Sweep 정상 흐름
-- Admin Portal에서 환경 전환 가능
-- 실제 Mainnet 트랜잭션 정상 처리
-- 장애 발생 시 로그 기반 추적 가능
+현재 우선순위:
 
----
-
-# 🧠 핵심 요약
-
-```
-Phase2는 기능 개발이 아니라
-
-"운영 가능한 시스템을 만드는 단계"
-
-핵심은
-- 환경 분리
-- 안전성
-- 로그
-- 배포 구조
-```
+1. Step3 상태 전이/멱등성 정리
+2. Step4 gas refill 중복 방지
+3. Step5 txHash lifecycle logging
+4. Step10 monitor API/Portal 연결
+5. Step11 deployment policy

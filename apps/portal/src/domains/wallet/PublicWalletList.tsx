@@ -4,7 +4,7 @@ import { SYS_PAGE_ROLE } from '@/constants';
 import { bodyStyles, headStyles } from '@/lib/bodyStyles';
 import WalletList from './WalletList';
 
-const TableOptions: ITxCoolTableOption = { headStyles, bodyStyles, headers: ['IDX', 'id', 'user.externalUserId', 'address', 'userId', 'status', 'createdAt', 'updatedAt'], headerKeySeparator: true };
+const TableOptions: ITxCoolTableOption = { headStyles, bodyStyles, headers: ['IDX', 'id', 'user.externalUserId', 'address', 'userId', 'status', 'assetsSnapshot', 'createdAt', 'updatedAt', 'refetch'], headerKeySeparator: true };
 
 export default function PublicWalletList() {
   return <WalletList tableOptions={TableOptions} pageRole={SYS_PAGE_ROLE.PUBLIC} />;

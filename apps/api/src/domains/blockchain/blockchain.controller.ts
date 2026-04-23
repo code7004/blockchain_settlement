@@ -18,7 +18,7 @@ export class AdminBlockchainController {
 
   @Get('wallet-balance')
   async getWalletBalance(@Query() query: TestWalletBalanceDto) {
-    return { data: { trx: await this.service.getTrxBalance(query.address), token: await this.service.getTokenBalance(this.env.tronUsdtContract, query.address) } };
+    return { data: { trx: await this.service.getTrxBalance(query.address), token: await this.service.getTokenBalance(query.address) } };
   }
 
   @Post('test-transfer')

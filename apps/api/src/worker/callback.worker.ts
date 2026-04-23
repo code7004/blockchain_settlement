@@ -1,56 +1,22 @@
 import { EnvService } from '@/core/env/env.service';
 import { CallbackService } from '@/domains/callback/callback.service';
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { CallbackStatus } from '@prisma/client';
 import axios from 'axios';
+import { BaseWorker } from './base.worker';
 
 const CALLBACK_MAX_ATTEMPTS = 3;
 
 @Injectable()
-export class CallbackWorker implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(CallbackWorker.name);
-  private timer: NodeJS.Timeout | null = null;
-  private pollInterval = 10000000;
-
+export class CallbackWorker extends BaseWorker {
   constructor(
     private readonly env: EnvService,
     private readonly service: CallbackService,
   ) {
-    this.pollInterval = this.env.getPollInterval('callback');
+    super('CallbackWorker', env.getPollInterval('callback'));
   }
 
-  onModuleInit() {
-    this.start();
-  }
-
-  onModuleDestroy() {
-    this.stop();
-  }
-
-  private start() {
-    if (this.timer) return;
-
-    this.logger.log(`STARTED interval=${this.pollInterval}ms---------------------`);
-
-    this.timer = setInterval(() => {
-      void this.process().catch((e) => {
-        this.logger.error(`tick failed: ${e instanceof Error ? e.message : String(e)}`);
-      });
-    }, this.pollInterval);
-
-    void this.process().catch((e) => {
-      this.logger.error(`initial tick failed: ${e instanceof Error ? e.message : String(e)}`);
-    });
-  }
-
-  private stop() {
-    if (!this.timer) return;
-    clearInterval(this.timer);
-    this.timer = null;
-    this.logger.log('CallbackWorker stopped.');
-  }
-
-  async process() {
+  async process(): Promise<void> {
     const callbacks = await this.service.findAllUnSucces();
 
     for (const job of callbacks) {
@@ -73,6 +39,7 @@ export class CallbackWorker implements OnModuleInit, OnModuleDestroy {
           requestSignature: signature,
           lastStatusCode: response.status,
           lastAttemptAt: new Date(),
+          writer: this.env.name,
         });
 
         this.logger.log(`Callback success deposit=${job.depositId} attempt=${attempt}`);
@@ -80,15 +47,19 @@ export class CallbackWorker implements OnModuleInit, OnModuleDestroy {
         this.logger.warn(`Callback retry deposit=${job.depositId} attempt=${attempt}`);
 
         let statusCode: string | undefined;
+        let reason: string | undefined;
 
-        if (typeof error === 'object' && error !== null && 'status' in error) {
+        if (typeof error === 'object' && error !== null && 'status' in error && 'message' in error) {
           statusCode = String(error.status);
+          reason = String(error.message);
         }
 
         if (attempt >= CALLBACK_MAX_ATTEMPTS) {
           await this.service.updateAttempt(job.id, {
             attemptCount: attempt,
             status: CallbackStatus.FAILED,
+            reason,
+            writer: this.env.name,
             lastAttemptAt: new Date(),
             lastStatusCode: Number(statusCode),
           });
@@ -99,6 +70,7 @@ export class CallbackWorker implements OnModuleInit, OnModuleDestroy {
 
         await this.service.updateAttempt(job.id, {
           attemptCount: attempt,
+          writer: this.env.name,
           lastAttemptAt: new Date(),
         });
       }

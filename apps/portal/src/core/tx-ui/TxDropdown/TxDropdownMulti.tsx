@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ITxDropdownData, ITxDropdownItem, TxDropdownValue } from '.';
+import type { ITxDropdownData, ITxDropdownItem, InferDropdownValue } from '.';
 import { TxDropdownBase } from './TxDropdownBase';
 import { normalizeMulti } from './utils';
 
-export interface ITxDropdownMultiProps {
-  value?: TxDropdownValue[];
-  data: ITxDropdownData;
+// ✅ 수정
+export interface ITxDropdownMultiProps<TData extends ITxDropdownData = ITxDropdownData> {
+  value?: InferDropdownValue<TData>[];
+  data: TData;
+
   caption?: string;
   warning?: string;
   error?: string;
@@ -18,7 +20,8 @@ export interface ITxDropdownMultiProps {
 
   defaultAllCheck?: boolean;
 
-  onChangeValue?: (items: ITxDropdownItem[]) => void;
+  // ✅ 수정
+  onChangeValue?: (items: ITxDropdownItem<InferDropdownValue<TData>>[]) => void;
   onChangeText?: (values: string[]) => void;
   onChangeNumb?: (values: number[]) => void;
   onChangeBool?: (values: boolean[]) => void;
@@ -102,10 +105,14 @@ export interface ITxDropdownMultiProps {
  * <TxDropdown caption="선택3" multiple={true} value={form.texts} data={["data1", "data2", "data3", "data4", "data5"]} onChangeText={str => console.log(str)} />
  * ```
  */
-export const TxDropdownMulti = ({ data, value, locale = (k) => k, fixedHead, defaultHead = 'Choose', defaultAllCheck = false, ...props }: ITxDropdownMultiProps) => {
-  const [xvalue, _xvalue] = useState<TxDropdownValue[] | undefined>();
+// ✅ 수정
+export const TxDropdownMulti = <TData extends ITxDropdownData>({ data, value, locale = (k) => k, fixedHead, defaultHead = 'Choose', defaultAllCheck = false, ...props }: ITxDropdownMultiProps<TData>) => {
+  // ✅ 수정
+  const [xvalue, _xvalue] = useState<InferDropdownValue<TData>[] | undefined>();
 
   const actualValue = value !== undefined ? value : xvalue;
+
+  // ✅ 수정
   const items = useMemo(() => normalizeMulti(data, actualValue), [data, actualValue]);
 
   const head = useMemo(() => {
@@ -129,7 +136,9 @@ export const TxDropdownMulti = ({ data, value, locale = (k) => k, fixedHead, def
 
     // uncontrolled + data 존재 + defaultAllCheck
     if (value === undefined && data?.length > 0 && defaultAllCheck) {
-      const allValues = data.map((d) => (typeof d === 'object' ? d.value : d));
+      // ✅ 수정
+      const allValues = data.map((d) => (typeof d === 'object' ? d.value : d)) as InferDropdownValue<TData>[];
+
       _xvalue(allValues);
       appliedDefaultAllRef.current = true;
     }
@@ -141,17 +150,26 @@ export const TxDropdownMulti = ({ data, value, locale = (k) => k, fixedHead, def
     }
   }, [value]);
 
-  function hdChange(items: ITxDropdownItem[]) {
-    const values = items.map((i) => i.value);
+  // ✅ 수정
+  function hdChange(items: ITxDropdownItem<InferDropdownValue<TData>>[]) {
+    const values = items.map((i) => i.value) as InferDropdownValue<TData>[];
 
     if (value === undefined) {
-      _xvalue(values); // ✅
+      _xvalue(values);
     }
 
     props.onChangeValue?.(items);
-    props.onChangeText?.(values as string[]);
-    props.onChangeNumb?.(values as number[]);
-    props.onChangeBool?.(values.map(Boolean));
+
+    // 타입 안전 분기 (권장)
+    if (typeof values[0] === 'string') {
+      props.onChangeText?.(values as string[]);
+    }
+    if (typeof values[0] === 'number') {
+      props.onChangeNumb?.(values as number[]);
+    }
+    if (typeof values[0] === 'boolean') {
+      props.onChangeBool?.(values as boolean[]);
+    }
   }
 
   return <TxDropdownBase {...props} data={items} locale={locale} head={head} multiple={true} onChangeInternal={hdChange} />;

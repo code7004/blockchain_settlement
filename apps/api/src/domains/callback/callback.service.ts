@@ -25,7 +25,7 @@ export class CallbackService {
     return await this.repo.findByTxHash(txHash);
   }
 
-  async updateAttempt(id: string, data: { attemptCount: number; requestSignature?: string; status?: CallbackStatus; lastStatusCode?: number; lastAttemptAt?: Date }) {
+  async updateAttempt(id: string, data: { writer: string; attemptCount: number; requestSignature?: string; reason?: string; status?: CallbackStatus; lastStatusCode?: number; lastAttemptAt?: Date }) {
     return await this.repo.updateAttempt(id, data);
   }
 

@@ -1,291 +1,153 @@
-# 🔵 Phase 2 — Usability & Operation Enhancement
+# Phase 2 - Usability & Operation Enhancement
 
-> 목표: “운영자/개발자가 실제로 사용 가능한 테스트·검증 환경 구축”
-
----
-
-🎯 Phase2 핵심 정의
-
-✔ 기능 추가 ❌
-✔ 운영 편의성 ⭕
-✔ 테스트 자동화 ⭕
-✔ 외부 개발자 사용성 ⭕
+> 현재 판정: 대부분 구현됨, 일부 보완 필요
+>
+> 목표: 개발자/운영자가 실제로 흐름을 조회하고 테스트할 수 있는 환경을 만든다.
 
 ---
 
-# ✅ Phase2 Scope
+## 1. Phase Definition
 
-## 1. Test Console (Wallet → Deposit Test)
+Phase2는 신규 정산 로직을 크게 늘리는 단계가 아니라, Phase1에서 만든 흐름을 운영자/개발자가 사용할 수 있게 만드는 단계이다.
 
-### 목적
+핵심:
 
-- Portal에서 직접 체인 테스트 수행
-- 입금 → 확정 → 콜백 → 스윕 전체 흐름 검증
-
----
-
-### 기능
-
-- From Wallet 입력 (테스트 지갑)
-- To Wallet 선택 (Deposit Address)
-- Token 선택 (mUSDT)
-- Amount 입력
-- Send 버튼
+- Worker 역할 분리
+- Public / Admin Portal 분리
+- Swagger / 문서 접근성
+- 테스트/운영 보조 API
+- 조회 UX 개선
+- 수동 retry / control 기반 마련
 
 ---
 
-### 동작 구조
+## 2. Implemented Scope
 
-Portal → API → TronService.transfer()
+### 2.1 Worker Split
 
-※ privateKey 보호를 위해 서버 proxy 방식 사용
+현재 Worker 구조:
 
----
-
-### 결과 표시
-
-- txHash 출력
-- 트랜잭션 링크 (Tronscan)
-- 처리 상태 추적
-
-```
-DETECTED → CONFIRMED → CALLBACK → SWEEP
+```text
+DepositWorker   -> detect
+ConfirmWorker   -> deposit confirm + sweep confirm
+CallbackWorker  -> callback retry
+SweepWorker     -> sweep broadcast
+ReclaimWorker   -> wallet asset reclaim
 ```
 
----
+구현 상태:
 
-## 2. Process Monitor (Transaction Flow)
+- 완료
+- `BaseWorker` 공통 interval / 중복 실행 guard 사용
 
-### 목적
+### 2.2 Public / Admin Portal
 
-- 단일 트랜잭션 기준 전체 처리 흐름 시각화
+현재 라우트:
 
----
-
-### 표시 항목
-
+```text
+/login
+/                  Developer/Public 영역
+/admin             Admin 영역
 ```
 
-1. Transfer 발생
-2. Watcher 감지
-3. Deposit 생성
-4. Confirmation 완료
-5. Callback 전송
-6. Sweep 완료
-```
+구현된 주요 화면:
+
+- Dashboard
+- Partners
+- Users
+- Wallets
+- Deposits
+- Callbacks
+- Sweeps
+- Documents / Swagger
+- System Errors
+
+비활성 또는 placeholder:
+
+- Withdrawals 일부
+- Balances 일부
+- Blockchain THOT / Watcher 일부
+- Monitoring
+- Audit Logs
+- Demo
+
+### 2.3 Developer / Test Console
+
+구현된 축:
+
+- `portal/blockchain/test-transfer`
+- wallet balance 조회
+- callback test log
+- DevConsolePage
+
+보완 필요:
+
+- txHash 입력 기반 full lifecycle view
+- 테스트 지갑/토큰 선택 UX
+- Tronscan link 표준화
+
+### 2.4 Manual Control
+
+구현된 축:
+
+- callback retry ids
+- failed callback retry
+- wallet assets reclaim job 생성
+- sweep list 조회
+
+보완 필요:
+
+- confirm 강제 실행 정책
+- sweep 재시도 정책
+- operator 권한 기준
+
+### 2.5 Developer Guide
+
+구현된 축:
+
+- Portal 내 문서 viewer
+- Swagger 연결
+
+보완 필요:
+
+- Partner API 사용 예제
+- callback signature 검증 예제
+- withdrawal 요청 예제
 
 ---
 
-### 기능
+## 3. Remaining Work
 
-- txHash 기반 조회
-- 단계별 상태 표시
-- 시간 정보 표시
-- 실패 단계 강조 표시
+우선순위 1:
 
----
+- txHash 기반 Process Monitor 고도화
+- Watcher status 실제 데이터 연결
+- Manual control 권한/감사 정책 정리
 
-## 3. Deposit Worker 분리
+우선순위 2:
 
-목적
+- Developer Guide 보강
+- Portal UX 일관화
+- 상태 badge / copy / external link 정리
 
-- 안정적인 테스트 서비스 제공을 위해 Worker 분리 작업을 한다.
+우선순위 3:
 
-기존 :
-
-```
-DepositWatcher
-private async tick() {
-  await this.detectTransfers();
-  await this.confirmService.processConfirmations();
-}
-
-
-export class ConfirmService {
-  ...
-  async processConfirmations(): Promise<void> {
-    ...
-
-    await this.callbackService.sendDepositConfirmed(deposit);
-    ...
-  }
-}
-```
-
-수정 :
-
-```
-// DepositWatcher
-tick() {
-  detectTransfers()
-}
-
-// ConfirmWorker
-tick() {
-  processConfirmations()
-}
-
-// CallbackWorker
-tick() {
-  retryCallbacks()
-}
-```
-
-## 4. Developer Guide (문서 보완)
-
-### 목적
-
-- 외부 개발자가 바로 연동 가능하도록 문서 강화
+- disabled 메뉴의 구현 여부 결정
+- placeholder 화면 정리
 
 ---
 
-### 추가 내용
+## 4. Completion Criteria
 
-#### 1. JavaScript 예제
+완료 기준:
 
-```
+- Portal에서 주요 도메인 조회가 가능하다.
+- Worker가 역할별로 분리되어 있다.
+- Swagger가 Partner API / Portal API로 분리되어 있다.
+- 운영자가 callback 실패와 sweep 상태를 추적할 수 있다.
+- 개발자가 문서와 Swagger로 연동 흐름을 이해할 수 있다.
 
-- 로그인
-- Wallet 생성
-- Deposit 주소 조회
-- Deposit 조회
-- Callback 검증
-- Withdrawal 요청
-```
+현재 판정:
 
----
-
-#### 2. API 요청/응답 예제
-
-```
-POST /auth/login
-POST /wallets
-GET /deposits
-POST /withdrawals
-```
-
----
-
-#### 3. Callback 검증 예제 (Node.js)
-
-```
-HMAC-SHA256 검증 코드
-```
-
----
-
-## 5. Public Portal UI (Operator / Developer)
-
-### 목적
-
-- 제한된 권한 사용자에게 조회 기능 제공
-
----
-
-### 권한 정의
-
-#### Developer
-
-- 조회 전용
-- Swagger / Docs 접근
-- Deposit / Withdrawal 조회
-
----
-
-#### Operator
-
-- 조회 + 일부 액션
-- Callback 재시도
-- Withdrawal 승인
-
----
-
-### 구현 방식
-
-- route.meta.permissions 기반 제어
-- 메뉴 필터링
-- 접근 제어
-
----
-
-### 구조
-
-```
-/admin   → 전체 기능
-/public  → 제한 기능
-```
-
-또는
-
-```
-role 기반 메뉴 필터
-```
-
----
-
-## 6. Portal UX 개선
-
-### 추가 기능
-
-- 필터 상태 URL 동기화
-- 자동 refresh (polling)
-- 상태 색상 표시
-- txHash copy 기능
-- 외부 링크 연결 (Tronscan)
-
----
-
-## 7. Watcher Status 강화
-
-### 표시 항목
-
-- running 여부
-- last scanned block
-- latest block
-- block lag
-- last scan time
-- 최근 에러 로그
-
----
-
-## 8. Manual Control 기능
-
-### 기능
-
-- confirm 강제 실행
-- callback 재시도
-- sweep 실행
-
----
-
-# 🚀 Phase2 우선순위
-
-## Tier 1 (필수)
-
-- Test Console
-- Process Monitor
-- Public Admin UI
-- worker 분리
-
----
-
-## Tier 2
-
-- Developer Guide
-
----
-
-## Tier 3
-
-- UX 개선
-- Watcher 상태 강화
-- Manual Control 기능
-
----
-
-# 🧠 핵심 요약
-
-```
-Phase1   = 시스템 동작 검증
-Phase2 = 운영 및 테스트 가능 상태
-```
+- 대부분 충족
+- Phase3 작업과 병행해 보완한다.

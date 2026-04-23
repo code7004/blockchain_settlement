@@ -110,7 +110,7 @@ export const TxCoolTableScroller = forwardRef<ITxCoolTableScrollerRef, ITxFlexLa
             className={`relative w-full h-full 
                 ${disableHScroll ? '' : 'overflow-x-auto'} 
                 ${disableVScroll ? '' : 'overflow-y-auto'} 
-                whitespace-nowrap`}
+                whitespace-normal`}
           >
             {children}
           </div>

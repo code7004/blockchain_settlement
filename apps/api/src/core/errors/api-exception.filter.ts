@@ -1,3 +1,4 @@
+import { ExceptionLogService } from '@/domains/exception-log/exception-log.service';
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import type { Request, Response } from 'express';
 
@@ -20,6 +21,8 @@ interface ApiErrorResponse {
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(ApiExceptionFilter.name);
+
+  constructor(private readonly exceptionLogService?: ExceptionLogService) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
@@ -44,6 +47,15 @@ export class ApiExceptionFilter implements ExceptionFilter {
         message,
         stack: exception instanceof Error ? exception.stack : undefined,
       });
+
+      if (status === Number(HttpStatus.INTERNAL_SERVER_ERROR) && !(exception instanceof HttpException)) {
+        void this.exceptionLogService?.captureApiException({
+          exception,
+          statusCode: status,
+          method: request.method,
+          path: request.originalUrl,
+        });
+      }
     } else {
       this.logger.warn('[HTTP ERROR]', {
         status,

@@ -1,200 +1,131 @@
-# 🔵 Phase 1 — Functional MVP (현재 상태 기준)
+# Phase 1 - Functional MVP
 
-> 목표: “입금 감지 → 확정 → 콜백 → 조회” 흐름이 **안정적으로 검증 가능**
-
----
-
-## 🎯 Phase1 핵심 정의
-
-```
-✔ 구조 증명
-✔ 데이터 정합성 유지
-✔ 파트너 분리
-✔ Admin UI로 상태 검증 가능
-
-❌ 운영 안정성
-❌ 고급 보안
-❌ 자동화 완성
-```
+> 현재 판정: 완료
+>
+> 목표: 입금 감지 -> 확정 -> 콜백 -> 조회 흐름을 검증 가능한 수준으로 만든다.
 
 ---
 
-## ✅ Phase1 Scope (재정의)
+## 1. Phase Definition
 
-### 1. Multi-Partner
+Phase1은 운영 완성이 아니라 구조 증명 단계이다.
 
-- Partner / User / Wallet 구조
+핵심:
+
+- Multi-Partner 구조 검증
+- Wallet 생성과 privateKey 암호화 저장
+- TRC20 입금 감지
+- Confirmation 이후 상태 전환
+- Callback 생성 및 retry
+- Simple balance 계산
+- Admin Portal 조회
+
+제외:
+
+- 운영 자동화
+- KMS / Vault
+- Queue / DLQ
+- Double-entry ledger
+- 고급 monitoring / alert
+- RBAC 고도화
+- Mainnet 운영 안정화
+
+---
+
+## 2. Implemented Scope
+
+### 2.1 Core Setup
+
+- pnpm workspace 기반 monorepo
+- NestJS API
+- React Portal
+- Prisma / PostgreSQL
+- Swagger
+- Global ValidationPipe
+- Prisma exception filter
+- HTTP logging interceptor
+
+### 2.2 Partner / User
+
+- Partner 생성/조회/수정
+- API Key prefix/hash 저장
+- User 생성/조회
+- `partnerId + externalUserId` unique
 - Partner 단위 데이터 격리
 
----
+### 2.3 Wallet
 
-### 2. Wallet
+- Tron account 생성
+- privateKey AES-256 암호화 저장
+- Wallet address unique
+- Wallet status 관리
 
-- Tron createAccount()
-- privateKey AES256 저장
+### 2.4 Deposit
 
----
+- DepositWorker 기반 TRC20 Transfer event polling
+- Deposit row 생성
+- `txHash @unique`
+- DETECTED 상태 저장
 
-### 3. Deposit Detection
+### 2.5 Confirmation
 
-- Block polling watcher
-- TRC20 transfer decode
-- txHash UNIQUE
-- 상태: DETECTED
+- ConfirmWorker 기반 block confirmation 처리
+- DETECTED -> CONFIRMED 전환
+- CONFIRMED 이후 CallbackLog 생성
 
----
+### 2.6 Callback
 
-### 4. Confirmation
+- CallbackLog 저장
+- HMAC-SHA256 서명
+- CallbackWorker retry
+- PENDING / SUCCESS / FAILED 상태
 
-- blockNumber 기반
-- 상태: CONFIRMED 전환
-- CONFIRMED 이후만 반영
+### 2.7 Balance
 
----
+현재 코드 기준:
 
-### 5. Callback
-
-- CONFIRMED 이후 호출
-- HMAC 서명
-- retry (3회)
-- callback_logs 저장
-
----
-
-### 6. Ledger (Simple)
-
-```
+```text
 balance = sum(CONFIRMED deposits) - sum(BROADCASTED withdrawals)
 ```
 
----
+### 2.8 Portal
 
-### 7. Admin UI (검증용)
-
-- Partner / User / Wallet 조회
-- Deposit 상태 확인
-- Callback 상태 확인
-- Withdrawal 조회
-- Balance 확인
-
-👉 운영툴 ❌
-
-👉 검증툴 ⭕
+- Login
+- Dashboard
+- Partner / User / Wallet / Deposit / Callback / Sweep 조회
+- Swagger / 문서 연결
+- Admin/Public 라우트 기반 분리의 기초
 
 ---
 
-### 8. Authentication (Minimal)
+## 3. Sprint History
 
-- Admin Login (JWT)
-- Admin Guard
-
-👉 Role / Scope ❌
-
-👉 단일 관리자 기준 ⭕
-
----
-
-### 9. Sweep (Partial)
-
-- Deposit → Hot Wallet 이동
-- Worker 존재
-- 실패 처리 단순
-
-👉 자동화 완성 ❌
-
-👉 구조 검증 ⭕
-
----
-
-## ❌ Phase1에서 제외 (강제)
-
-```
-- Withdrawal broadcast 완성
-- Gas 자동 refill 완성
-- Monitoring 시스템
-- Queue 기반 callback
-- Rate limit
-- RBAC 고도화
-- KMS / Vault
+```text
+Day 1-3  Core setup, Prisma, Partner, User
+Day 4    Wallet 생성과 privateKey 암호화
+Day 5    Deposit detection
+Day 6    Confirmation
+Day 7    Callback
+Day 8    Admin UI 기본 조회
+Day 9    Balance 계산
+Day 10   Sweep 구조 초안
+Day 11   Auth / JWT
 ```
 
 ---
 
-# 📅 Phase1 Sprint (현실 기준)
+## 4. Completion Criteria
 
-## Day 1 ~ 3 — Core Setup
+완료 기준:
 
-- 프로젝트 세팅
-- DB / Prisma
-- Partner / User
+- 테스트넷 입금이 DB에 DETECTED로 생성된다.
+- confirmation 수 충족 후 CONFIRMED로 전환된다.
+- callback log가 생성된다.
+- callback retry 결과가 SUCCESS / FAILED로 남는다.
+- Portal에서 주요 데이터를 조회할 수 있다.
+- Partner API와 Portal API의 인증 경계가 존재한다.
 
----
+현재 판정:
 
-## Day 4 — Wallet
-
-- Tron 연결
-- wallet 생성
-- 암호화 저장
-
----
-
-## Day 5 — Deposit Watcher
-
-- block scan
-- deposit 생성 (DETECTED)
-
----
-
-## Day 6 — Confirmation
-
-- CONFIRMED 전환
-- blockNumber 기준
-
----
-
-## Day 7 — Callback
-
-- HMAC 생성
-- retry
-- callback_logs
-
----
-
-## Day 8 — Admin UI (기본)
-
-- Partner / User / Deposit 조회
-
----
-
-## Day 9 — Balance
-
-- simple ledger 계산
-
----
-
-## Day 10 — Sweep (구조만)
-
-- deposit → hot wallet
-
----
-
-## Day 11 — Auth (Minimal)
-
-- login
-- JWT
-- guard
-
----
-
-# ✅ Phase1 완료 기준 (Revised)
-
-```
-- 테스트넷 입금 → DB DETECTED 생성
-- Confirmation → CONFIRMED 전환
-- Callback 전송 확인
-- Admin UI에서 전체 흐름 확인 가능
-- JWT 로그인 가능
-- Partner/User/Wallet 구조 정상 동작
-```
-
----
+- 완료
+- 이후 변경은 Phase2/Phase3 문서에서 관리한다.

@@ -2,237 +2,275 @@
 
 ## Overview
 
-이 시스템은 기능 단위가 아닌 **도메인 단위로 분리된 구조**를 기반으로 설계되었습니다.
+이 문서는 시스템의 주요 도메인을 파트너/포털 개발자 관점에서 설명합니다.
 
-각 도메인은 독립적인 책임을 가지며,
-
-입금 감지 → 확정 → 정산 → 출금 흐름을 구성하는 핵심 단위입니다.
-
----
-
-## Domain Structure
-
-```
-Partner
-User
-Wallet
-Deposit
-Withdrawal
-Callback
-Ledger
-```
-
-각 도메인은 서로 연결되어 하나의 정산 시스템을 구성합니다.
+도메인은 단순 화면 메뉴가 아니라 정산 흐름의 책임 단위입니다.
 
 ---
 
 ## 1. Partner
 
-파트너는 시스템을 사용하는 외부 서비스 단위입니다.
+Partner는 솔루션을 사용하는 외부 서비스 단위입니다.
 
-### 역할
+역할:
 
-- API 인증 주체
-- Callback 수신 주체
-- 사용자 관리 단위
+- API Key 인증 주체
+- User / Wallet / Deposit 데이터 격리 기준
+- callbackUrl 수신 주체
 
-### 주요 속성
+Partner가 관리하는 값:
 
-- apiKey
+- Partner name
 - callbackUrl
-- status
+- callbackSecret
+- API Key
+
+보안:
+
+- raw API Key는 최초 발급 시에만 확인합니다.
+- callbackSecret은 HMAC 검증에 사용하며 외부에 노출하면 안 됩니다.
 
 ---
 
-## 2. User
+## 2. Member
 
-User는 파트너 내부의 최종 사용자입니다.
+Member는 Portal 로그인 계정입니다.
 
-### 역할
+역할:
 
-- Wallet 소유자
-- 입금/출금의 실제 주체
+- Admin / Developer Portal 접근
+- 권한별 메뉴 접근 제어
 
-### 주요 속성
+역할:
 
-- partnerId
-- externalUserId
-
----
-
-## 3. Wallet
-
-Wallet은 블록체인 주소를 관리하는 도메인입니다.
-
-### 역할
-
-- Deposit Address 생성
-- 사용자와 주소 매핑
-
-### 특징
-
-- 사용자당 1개 이상 생성 가능
-- privateKey는 암호화되어 저장됨
-
----
-
-## 4. Deposit
-
-Deposit은 입금 트랜잭션을 관리하는 핵심 도메인입니다.
-
-### 역할
-
-- 블록체인 입금 기록 저장
-- 상태 관리 (DETECTED / CONFIRMED)
-- Ledger 반영 기준 데이터
-
----
-
-### 상태 정의
-
-```
-DETECTED → CONFIRMED
+```text
+OWNER
+OPERATOR
+DEVELOPER
 ```
 
----
-
-### 특징
-
-- txHash 기준 멱등 처리
-- Confirmation 이후에만 유효
+일반 파트너 API 호출은 Member JWT가 아니라 Partner API Key를 사용합니다.
 
 ---
 
-## 5. Withdrawal
+## 3. User
 
-Withdrawal은 출금 요청을 관리하는 도메인입니다.
+User는 Partner 내부의 최종 사용자입니다.
 
-### 역할
+역할:
 
-- 출금 요청 생성
-- 상태 기반 처리
+- Deposit Wallet의 소유자
+- 입금 식별의 사용자 기준
+
+주요 필드:
+
+- `externalUserId`
+- `isActive`
+
+규칙:
+
+- `externalUserId`는 Partner 내부에서 unique입니다.
+- User 생성 시 Wallet이 자동 생성됩니다.
 
 ---
 
-### 상태 흐름 (예정 구조)
+## 4. Wallet
 
+Wallet은 사용자에게 발급되는 Tron Deposit Address입니다.
+
+역할:
+
+- 입금 주소 제공
+- Deposit의 `toAddress` 매칭 기준
+- Sweep의 출발 주소
+
+상태:
+
+```text
+ACTIVE
+SUSPENDED
+LOCKED
+PENDING
 ```
-REQUESTED → APPROVED → BROADCASTED → CONFIRMED
-```
+
+보안:
+
+- privateKey는 API로 제공되지 않습니다.
+- Partner는 address만 사용합니다.
 
 ---
 
-### Phase1 상태
+## 5. Deposit
 
-- 기본 구조만 존재
-- 실제 출금 로직은 제한적
+Deposit은 체인에서 감지된 입금 트랜잭션입니다.
+
+역할:
+
+- txHash 기반 입금 기록
+- confirmation 상태 관리
+- callback 생성 기준
+- balance 계산 기준
+
+상태:
+
+```text
+DETECTED
+CONFIRMED
+FAILED
+```
+
+규칙:
+
+- DETECTED는 아직 확정 입금이 아닙니다.
+- CONFIRMED 이후에만 파트너 잔액 반영을 권장합니다.
+- txHash는 unique입니다.
 
 ---
 
 ## 6. Callback
 
-Callback은 파트너 시스템과의 이벤트 통신을 담당합니다.
+Callback은 입금 확정 이벤트를 파트너 서버로 전달하는 도메인입니다.
 
-### 역할
+역할:
 
-- 입금 확정 이벤트 전달
-- 재시도 관리
+- CONFIRMED Deposit 이벤트 전달
+- HMAC signature 생성
+- retry 상태 관리
 
----
+상태:
 
-### 특징
-
-- HMAC 서명 기반 보안
-- 실패 시 재시도 수행
-
----
-
-## 7. Ledger
-
-Ledger는 정산 데이터를 계산하는 도메인입니다.
-
-### 역할
-
-- 입금/출금 기반 잔액 계산
-- Admin 조회 데이터 제공
-
----
-
-### Phase1 특징
-
-- 단순 합산 구조
-
-```
-balance = depositSum - withdrawalSum
+```text
+PENDING
+SUCCESS
+FAILED
 ```
 
+파트너 책임:
+
+- HMAC 검증
+- txHash/callbackId 멱등 처리
+- 2xx 응답 반환
+
 ---
 
-### Phase2 확장
+## 7. Sweep
 
-- double-entry ledger 구조 예정
+Sweep은 Deposit Wallet에 들어온 token을 Hot Wallet로 옮기는 도메인입니다.
 
----
+구성:
 
-## Domain Relationships
+- SweepJob: 처리 대기 작업
+- SweepLog: 실행 이력과 상태
 
+상태:
+
+```text
+PENDING
+BROADCASTED
+CONFIRMED
+FAILED
+SKIPPED
 ```
+
+파트너 관점:
+
+- 직접 호출하는 기능이 아니라 운영/조회 대상입니다.
+- Sweep 지연이 입금 callback 자체를 의미하지는 않습니다.
+
+---
+
+## 8. Withdrawal
+
+Withdrawal은 출금 요청과 체인 전송 상태를 관리하는 도메인입니다.
+
+상태 모델:
+
+```text
+REQUESTED
+APPROVED
+BROADCASTED
+CONFIRMED
+FAILED
+```
+
+현재 public Partner API 문서에서는 출금 연동을 활성 기능으로 안내하지 않습니다.
+
+출금 기능은 운영 승인, Hot Wallet 정책, double broadcast 방지, chain confirmation 추적과 함께 별도 문서로 제공됩니다.
+
+---
+
+## 9. Balance
+
+Balance는 현재 단순 계산 기반입니다.
+
+```text
+sum(CONFIRMED deposits) - sum(BROADCASTED withdrawals)
+```
+
+주의:
+
+- DETECTED Deposit은 제외됩니다.
+- 향후 double-entry ledger로 확장될 수 있습니다.
+
+---
+
+## 10. Blockchain / Monitor
+
+Portal 운영 보조 도메인입니다.
+
+기능:
+
+- wallet balance 조회
+- test transfer
+- txHash lifecycle 조회
+
+권한:
+
+- 일반적으로 Portal JWT 권한이 필요합니다.
+- Partner API Key로 직접 호출하는 public API가 아닙니다.
+
+---
+
+## 11. Domain Relationship
+
+```text
 Partner
-  ↓
-User
-  ↓
-Wallet
-  ↓
-Deposit
-  ↓
-Ledger
+  -> User
+  -> Wallet
+  -> Deposit
+  -> Callback
+  -> Sweep
+
+Partner
+  -> Withdrawal
+  -> Balance
 ```
 
-추가 흐름:
+핵심:
 
-```
-Deposit → Callback
-Deposit → Sweep → Hot Wallet
-Withdrawal → Hot Wallet
-```
-
----
-
-## Key Design Principles
-
-### 1. Domain Separation
-
-각 도메인은 독립적으로 관리되며,
-
-책임이 명확히 분리됩니다.
+- 모든 정산 데이터는 Partner를 기준으로 추적됩니다.
+- User는 Partner에 종속됩니다.
+- Wallet은 User에 종속됩니다.
+- Deposit은 Wallet 주소 매칭으로 생성됩니다.
+- Callback은 Deposit 확정 이후 생성됩니다.
+- Sweep은 Deposit 확정 이후 자산 집계를 담당합니다.
 
 ---
 
-### 2. State-driven Processing
+## 12. Summary
 
-모든 흐름은 상태 기반으로 처리됩니다.
+파트너 개발자가 반드시 이해해야 하는 도메인:
 
-- Deposit: DETECTED → CONFIRMED
-- Withdrawal: REQUESTED → ...
+- Partner
+- User
+- Wallet
+- Deposit
+- Callback
 
----
+Portal 개발자가 추가로 이해해야 하는 도메인:
 
-### 3. Idempotency
-
-- 동일 txHash는 한 번만 처리됩니다.
-- 중복 처리 방지를 보장합니다.
-
----
-
-### 4. Partner Isolation
-
-- 모든 데이터는 Partner 단위로 분리됩니다.
-- 데이터 혼합이 발생하지 않도록 설계되었습니다.
-
----
-
-## Summary
-
-- Domain 구조는 시스템 확장성과 안정성을 위한 핵심 설계입니다.
-- 각 도메인은 독립적인 책임을 가지며 전체 정산 흐름을 구성합니다.
-- 상태 기반 처리와 멱등성 보장을 통해 데이터 정합성을 유지합니다.
+- Sweep
+- Balance
+- Member
+- Blockchain / Monitor
+- Withdrawal

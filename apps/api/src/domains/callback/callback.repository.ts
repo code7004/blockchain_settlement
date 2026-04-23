@@ -16,32 +16,11 @@ import { UpdateCallbackDto } from './dto/update.callback.dto';
 export class CallbackRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: { partnerId: string; txHash: string; depositId: string; eventType: string; callbackUrl: string; requestBody: string; requestSignature: string; maxAttempts: number }) {
-    try {
-      return await this.prisma.callbackLog.create({
-        data: {
-          partnerId: data.partnerId,
-          depositId: data.depositId,
-          txHash: data.txHash,
-          eventType: data.eventType,
-          callbackUrl: data.callbackUrl,
-          requestBody: data.requestBody,
-          requestSignature: data.requestSignature,
-          attemptCount: 0,
-          maxAttempts: data.maxAttempts,
-          status: CallbackStatus.PENDING,
-        },
-      });
-    } catch (error: unknown) {
-      mapPrismaError(error);
-    }
-  }
-
   async update(id: string, data: UpdateCallbackDto) {
     return await this.prisma.callbackLog.update({ where: { id }, data });
   }
 
-  async updateAttempt(id: string, data: { attemptCount: number; requestSignature?: string; status?: CallbackStatus; lastStatusCode?: number; lastAttemptAt?: Date }) {
+  async updateAttempt(id: string, data: { writer: string; attemptCount: number; requestSignature?: string; reason?: string; status?: CallbackStatus; lastStatusCode?: number; lastAttemptAt?: Date }) {
     try {
       return await this.prisma.callbackLog.update({ where: { id }, data });
     } catch (error: unknown) {

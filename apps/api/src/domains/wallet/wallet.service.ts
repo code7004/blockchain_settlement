@@ -1,17 +1,22 @@
-import { PAGINATION_DEFAULT_LIMIT, PAGINATION_MAX_LIMIT } from '@/core/constants';
-import { encryptPrivateKey } from '@/core/crypto/aes256';
+import { decryptPrivateKey, encryptPrivateKey } from '@/core/crypto/aes256';
 import { EnvService } from '@/core/env/env.service';
 import { mapPrismaError } from '@/core/errors/prisma-exception.mapper';
 import { PrismaService } from '@/infra/prisma/prisma.service';
 import { TronService } from '@/infra/tron/tron.service';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, WalletStatus } from '@prisma/client';
+import { AssetsSnapshotDto } from './dto/assets.snapshot.dto';
+import { CreateReclaimJobsDto } from './dto/create-reclaim-jobs.dto';
 import { GetWalletsQueryDto } from './dto/get-wallets.query.dto';
+import { WalletRepository } from './wallet.repository';
 
 @Injectable()
 export class WalletService {
+  private readonly logger = new Logger(WalletService.name);
+
   constructor(
     private readonly prisma: PrismaService,
+    private readonly repo: WalletRepository,
     private readonly tronService: TronService,
     private readonly env: EnvService,
   ) {}
@@ -64,38 +69,52 @@ export class WalletService {
     }
   }
 
-  async findAll(query: GetWalletsQueryDto) {
-    const limit = Math.min(query.limit ?? PAGINATION_DEFAULT_LIMIT, PAGINATION_MAX_LIMIT);
-    const offset = query.offset ?? 0;
-
-    const { partnerId, keyword, status } = query;
-    const where: Prisma.WalletWhereInput = {};
-    if (partnerId) where.partnerId = partnerId;
-    if (status) where.status = status;
-
-    if (keyword?.trim()) {
-      where.OR = [{ address: { contains: keyword, mode: 'insensitive' } }];
+  async findAll(dto: GetWalletsQueryDto) {
+    try {
+      return await this.repo.findAll(dto);
+    } catch (err) {
+      mapPrismaError(err);
     }
+  }
 
-    const [data, total] = await this.prisma.$transaction([
-      this.prisma.wallet.findMany({
-        where,
-        take: limit,
-        skip: offset,
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          partnerId: true,
-          userId: true,
-          address: true,
-          status: true,
-          createdAt: true,
-          updatedAt: true,
-          user: { select: { externalUserId: true } },
-        },
-      }),
-      this.prisma.wallet.count({ where }),
-    ]);
-    return { data, total, limit, offset };
+  async createReclaimJobsAll(params: CreateReclaimJobsDto) {
+    try {
+      return this.repo.createReclaimJobsAll(params);
+    } catch (err) {
+      mapPrismaError(err);
+    }
+  }
+
+  async getAssets(id: string) {
+    try {
+      const tron = this.tronService;
+      const tokenSymbol = this.env.tokenSymbol;
+      const wallet = await this.repo.findUnique(id);
+      if (!wallet) return null;
+
+      const [trx, token] = await Promise.all([tron.getTrxBalance(wallet.address), tron.getTokenBalance(wallet.address)]);
+
+      const assets: AssetsSnapshotDto = { coins: { trx }, tokens: { [tokenSymbol]: token } };
+      await this.repo.snapshot(wallet.id, assets);
+
+      return assets;
+    } catch (error) {
+      mapPrismaError(error);
+    }
+  }
+
+  private getPrivateKey(encryptedPrivateKey: string): string {
+    const pk = decryptPrivateKey(encryptedPrivateKey, this.env.walletMasterKey);
+    return pk;
+  }
+
+  async transferToken(encryptedPrivateKey: string, toAddress: string, amount: number): Promise<string> {
+    const privateKey = this.getPrivateKey(encryptedPrivateKey);
+    return this.tronService.transferToken(privateKey, toAddress, amount);
+  }
+
+  async transferTrx(encryptedPrivateKey: string, toAddress: string, amount: number): Promise<string> {
+    const privateKey = this.getPrivateKey(encryptedPrivateKey);
+    return this.tronService.transferTrx(privateKey, toAddress, amount);
   }
 }

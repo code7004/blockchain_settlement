@@ -13,9 +13,7 @@ export class AdminBlockchainService {
   async testTransfer(dto: TestTransferDto) {
     const { fromPrivateKey, toAddress, amount } = dto;
 
-    const contract = this.env.tronUsdtContract;
-
-    const txHash = await this.tronService.transferToken(fromPrivateKey, contract, toAddress, amount);
+    const txHash = await this.tronService.transferToken(fromPrivateKey, toAddress, amount);
 
     return { txHash };
   }
@@ -24,7 +22,7 @@ export class AdminBlockchainService {
     return await this.tronService.getTrxBalance(address);
   }
 
-  async getTokenBalance(tokenContract: string, address: string) {
-    return await this.tronService.getTokenBalance(tokenContract, address);
+  async getTokenBalance(address: string) {
+    return await this.tronService.getTokenBalance(address);
   }
 }

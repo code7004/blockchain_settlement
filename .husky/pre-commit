@@ -1,3 +1,7 @@
 #!/usr/bin/env sh
 
-pnpm lint-staged
+if [ -n "$VSCODE_GIT_IPC_HANDLE" ]; then
+  NO_COLOR=1 FORCE_COLOR=0 pnpm lint-staged
+else
+  pnpm lint-staged
+fi

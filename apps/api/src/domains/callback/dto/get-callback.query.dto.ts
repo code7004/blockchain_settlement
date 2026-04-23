@@ -6,7 +6,7 @@ import { CallbackStatus } from '@prisma/client';
 import { IsEnum, IsOptional, IsUUID } from 'class-validator';
 
 class FilterQueryDto {
-  @ApiPropertyOptional({ description: 'txHash' })
+  @ApiPropertyOptional({ description: 'id' })
   @IsOptional()
   @IsUUID()
   id?: string;

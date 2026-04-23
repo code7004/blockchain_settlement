@@ -1,10 +1,11 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { AdminModules, ApiModules, AppModule } from './app.module';
+import { ApiModules, AppModule, PortalModules } from './app.module';
 import { ApiExceptionFilter } from './core/errors/api-exception.filter';
 import { HttpLoggingInterceptor } from './core/logger/http-logging.interceptor';
 import { AppLoggerService } from './core/logger/logger.service';
+import { ExceptionLogService } from './domains/exception-log/exception-log.service';
 
 const apiDescription = `
 ### 이용 방법
@@ -53,7 +54,7 @@ async function bootstrap() {
 
   // 3. validation
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }));
-  app.useGlobalFilters(new ApiExceptionFilter());
+  app.useGlobalFilters(new ApiExceptionFilter(app.get(ExceptionLogService)));
   // app.setGlobalPrefix('api', { exclude: ['/docs/(.*)'] });
 
   // 4. Swagger
@@ -82,7 +83,7 @@ async function bootstrap() {
   });
 
   // Portal Swagger
-  const portalDocument = SwaggerModule.createDocument(app, portalConfig, { include: AdminModules });
+  const portalDocument = SwaggerModule.createDocument(app, portalConfig, { include: PortalModules });
 
   SwaggerModule.setup('/docs/partner', app, portalDocument);
   await app.listen(process.env.PORT ?? 3000);

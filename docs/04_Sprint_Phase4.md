@@ -1,264 +1,276 @@
-## Phase4. Sprint Plan(8 Weeks)
+# Phase 4 - Production Hardening
 
-### Week 1 – Deposit Watcher Hardening
+> 현재 판정: 예정
+>
+> 목표: 실제 운영 안정성, 보안, 정산 신뢰성을 확보한다.
 
-**목표**
+---
 
-Watcher를 “운영 가능 수준”으로 개선
+## 1. Phase Definition
 
-**작업**
+Phase4는 Phase3에서 운영 가능한 구조가 정리된 이후, 장애 복구/정산 신뢰성/보안/모니터링을 서비스 수준으로 끌어올리는 단계이다.
 
-- `chain_checkpoint` 테이블 생성
-- 마지막 스캔 블록 저장
+Phase4 전제:
+
+- Phase3 상태 전이 정책 완료
+- Sweep broadcast -> confirm 흐름 안정화
+- Dev / Live 환경 분리 완료
+- 배포/restart/log 정책 수립
+
+---
+
+## 2. Week Plan
+
+### Week 1. Deposit Worker Hardening
+
+목표:
+
+- 파일 cursor 기반 watcher를 운영 복구 가능한 checkpoint 구조로 전환한다.
+
+작업:
+
+- `chain_checkpoint` 테이블 설계
+- last scanned block DB 저장
 - 서버 재시작 시 checkpoint 기반 재시작
 - 블록 누락 복구 로직
-- 중복 처리 재검증
+- 동일 블록 재처리 멱등성 검증
 
-**완료 기준**
+완료 기준:
 
-- 서버 재시작 후 누락 없이 재스캔
-- 동일 블록 재처리 시 멱등성 유지
-- watcher 중단 후 복구 가능
+- watcher 중단/재시작 후 누락 없이 재개된다.
+- 동일 block 재처리 시 중복 Deposit이 생성되지 않는다.
 
-#### Week 2 – Callback Queue System
+### Week 2. Callback Queue System
 
-**목표**
+목표:
 
-콜백을 동기 처리 → 비동기 Queue 기반으로 전환
+- CallbackWorker의 DB polling 구조를 queue 기반으로 고도화한다.
 
-**작업**
+작업:
 
-- BullMQ 도입
-- callback_job 테이블/queue 설계
-- Exponential Backoff
-- Dead-letter Queue
-- 응답 검증 로직 추가
-- timeout 처리
+- BullMQ 또는 대체 queue 도입 여부 결정
+- callback_job / DLQ 설계
+- exponential backoff
+- timeout / response validation
+- callback 중복 전송 방지
 
-**완료 기준**
+완료 기준:
 
-- API 응답과 콜백 처리 분리
-- 콜백 실패 시 재시도 정책 정상 동작
-- DLQ 적재 확인 가능
+- callback retry 정책이 queue 기준으로 추적된다.
+- DLQ 적재와 재처리가 가능하다.
 
-#### Week 3 – Withdrawal State Machine 고도화
+### Week 3. Withdrawal State Machine
 
-**목표**
+목표:
 
-출금 상태 전이 안정화
+- 출금 lifecycle을 chain confirmation까지 안정적으로 추적한다.
 
-**작업**
+작업:
 
-상태 확장:
-
-```
-REQUESTED
-  → APPROVED
-  → BROADCASTED
-  → CONFIRMED
-  → FAILED / RETRY
-```
-
-- 체인 confirmation 추적
-- 실패 재시도 정책
+- 상태 전이 guard 강화
+- double broadcast 방지
+- Hot Wallet transfer confirm 추적
+- 실패 재처리 정책
 - txHash 기반 상태 동기화
-- double broadcast 방지 로직
 
-**완료 기준**
+완료 기준:
 
-- 체인 실패 시 자동 상태 전환
-- 중복 broadcast 방지
-- CONFIRMED까지 추적 가능
+- REQUESTED -> APPROVED -> BROADCASTED -> CONFIRMED 흐름이 검증된다.
+- 실패/지연/중복 broadcast 케이스를 추적할 수 있다.
 
-#### Week 4 – Sweep Strategy 도입
+### Week 4. Sweep Strategy
 
-**목표**
+목표:
 
-User Wallet → Hot Wallet 집계 자동화
+- Sweep 자동화와 운영 제어를 고도화한다.
 
-**작업**
+작업:
 
-- sweep_job 설계
-- threshold 기반 sweep
-- 파트너별 집계 전략
-- sweep 로그 저장
-- sweep 실패 처리
+- threshold / cooldown 정책
+- partner별 sweep 정책
+- refill log
+- failed sweep retry
+- sweep pending lag monitoring
 
-**완료 기준**
+완료 기준:
 
-- 일정 기준 이상 잔액 자동 집계
-- sweep 로그 추적 가능
-- 수동 개입 없이 집계 가능
+- Deposit Wallet 잔액이 정책에 따라 안정적으로 Hot Wallet에 집계된다.
+- gas 부족/chain 실패 케이스가 추적된다.
 
-#### Week 5 – Ledger Upgrade (Double-Entry)
+### Week 5. Ledger Upgrade
 
-**목표**
+목표:
 
-정산 신뢰성 확보
+- 단순 합산 balance를 double-entry ledger로 전환한다.
 
-**작업**
+작업:
 
 - ledger_entry 테이블 설계
-- DEBIT / CREDIT 구조
+- CREDIT / DEBIT 구조
 - refType / refId 연결
-- deposit / withdrawal 연동
-- balance 계산 → ledger 기반으로 변경
+- deposit / withdrawal / sweep 연동
+- balance 계산 교체
+- ledger 재생성/검증 도구
 
-**완료 기준**
+완료 기준:
 
-- 모든 입출금이 ledger에 기록
-- balance는 ledger 기반 계산
-- 체인 잔액과 비교 가능
+- 모든 정산 이벤트가 ledger에 기록된다.
+- balance는 ledger 기반으로 계산된다.
+- 체인 잔액과 DB 잔액 대사가 가능하다.
 
-#### Week 6 – Gas & Resource Management
+### Week 6. Gas & Resource Management
 
-**목표**
+목표:
 
-TRX 에너지/수수료 관리 자동화
+- TRX / Energy 부족으로 인한 전송 실패를 줄인다.
 
-**작업**
+작업:
 
-- hot_wallet_trx_balance 추적
-- 가스 부족 사전 감지
-- 자동 TRX 충전 로직
-- 가스 로그 저장
+- Gas Tank balance monitoring
+- wallet refill cooldown
+- Resource delegation 검토
+- gas usage log
+- low balance alert
 
-**완료 기준**
+완료 기준:
 
-- 에너지 부족 시 사전 경고
-- 자동 충전 가능
-- 출금 실패 감소
+- gas 부족을 사전에 탐지한다.
+- refill 중복이 방지된다.
+- 출금/sweep 실패율이 감소한다.
 
-#### Week 7 – Security Hardening
+### Week 7. Security Hardening
 
-**목표**
+목표:
 
-키 관리 및 접근 제어 강화
+- 키 관리와 관리자 권한을 운영 수준으로 강화한다.
 
-**작업**
+작업:
 
-- AWS KMS 또는 Vault 연동
-- privateKey 접근 Audit Log
-- Role-Based Access Control
-- Admin 권한 분리
+- KMS / Vault 도입 검토 및 적용
+- privateKey 접근 audit log
+- RBAC 강화
+- 민감 정보 redaction 검증
+- 운영자 권한 분리
 
-**완료 기준**
+완료 기준:
 
-- 키 접근 로그 추적 가능
-- 관리자 권한 분리
-- 키 직접 노출 차단
+- privateKey 접근 경로가 추적된다.
+- 관리자 권한이 역할별로 제한된다.
+- 민감 정보가 로그에 노출되지 않는다.
 
-#### Week 8 – Monitoring & Risk Management
+### Week 8. Monitoring & Risk Management
 
-**목표**
+목표:
 
-운영 가시성 확보
+- 운영자가 장애와 이상 패턴을 빠르게 파악할 수 있게 한다.
 
-**작업**
+작업:
 
-- 파트너별 입금 통계
-- 콜백 실패율 모니터링
-- 출금 실패율 모니터링
-- Rate Limiting
-- 대시보드 구성
-- 알림 시스템 연동 (Slack 등)
+- txHash lifecycle dashboard
+- callback failure rate
+- withdrawal failure rate
+- sweep lag
+- block lag
+- alert channel
+- incident template
 
-**완료 기준**
+완료 기준:
 
-- 이상 패턴 감지 가능
-- 파트너 SLA 관리 가능
-- 운영자가 시스템 상태 실시간 확인 가능
+- 주요 실패율과 지연 상태를 dashboard에서 확인할 수 있다.
+- 장애 발생 시 알림과 대응 기준이 존재한다.
 
-## Phase4. Completion Checklist
+---
 
-### 안정성
+## 3. Completion Checklist
 
-- [ ] 서버 재시작 후 watcher 정상 복구
-- [ ] 블록 누락 복구 가능
-- [ ] 동일 tx 재처리 시 중복 반영 없음
-- [ ] double broadcast 방지 로직 검증 완료
+안정성:
 
-### 정합성
+- [ ] watcher checkpoint 복구
+- [ ] 동일 tx 재처리 멱등성 검증
+- [ ] double broadcast 방지
+- [ ] queue retry / DLQ
 
-- [ ] 모든 입출금이 double-entry ledger에 기록
-- [ ] balance는 ledger 기반 계산
-- [ ] 체인 잔액과 DB 잔액 대사 가능
-- [ ] Sweep 후 잔액 일치 확인
+정합성:
 
-### 콜백 신뢰성
+- [ ] double-entry ledger
+- [ ] ledger 기반 balance
+- [ ] 체인 잔액 대사
+- [ ] Sweep 이후 DB/chain 흐름 검증
 
-- [ ] Queue 기반 처리 전환 완료
-- [ ] Exponential Backoff 동작 확인
-- [ ] Dead-letter Queue 적재 확인
-- [ ] 콜백 실패율 통계 확인 가능
+보안:
 
-### 보안
+- [ ] KMS / Vault
+- [ ] privateKey audit
+- [ ] RBAC
+- [ ] log redaction
 
-- [ ] privateKey는 KMS/Vault에서만 접근
-- [ ] Key 접근 로그 추적 가능
-- [ ] 관리자 권한 분리 완료
-- [ ] 민감 데이터 로그 노출 없음
+운영:
 
-### 운영 가시성
+- [ ] dashboard
+- [ ] alert
+- [ ] incident response
+- [ ] backup / restore
 
-- [ ] 파트너별 입금/출금 통계 확인 가능
-- [ ] 실패율 대시보드 확인 가능
-- [ ] 이상 패턴 탐지 가능
-- [ ] 알림 시스템 연동 완료
+성능:
 
-### 성능
+- [ ] 월 150,000건 기준 조회 성능 검증
+- [ ] Deposit / Withdrawal / Sweep 인덱스 최적화
+- [ ] balance 계산 지연 제거
 
-- [ ] 월 150,000건 기준 인덱스 최적화 확인
-- [ ] 주요 테이블(Deposit, Withdrawal, Ledger) 조회 성능 검증
-- [ ] 대량 데이터에서 balance 계산 지연 없음
+---
 
-## Phase4. Risk Management
+## 4. Risk Management
 
-### 체인 리스크
+체인 리스크:
 
-- Confirmation 지연
-- 체인 reorg 가능성
-- Gas 부족으로 인한 출금 실패
+- confirmation 지연
+- chain reorg
+- gas 부족
+- TronGrid rate limit
 
 대응:
 
-- 최소 블록 확정 기준 유지
-- blockNumber 재검증
-- 가스 사전 감지
+- confirmation 기준 유지
+- retry/backoff
+- checkpoint 재처리
+- gas monitoring
 
-### 멱등성 리스크
+정합성 리스크:
 
 - 중복 tx 반영
 - 중복 broadcast
-- 콜백 중복 수신
+- callback 중복 전송
 
 대응:
 
-- txHash UNIQUE
-- 상태 기반 전이 제한
-- 콜백 eventType UNIQUE 제약
+- txHash unique
+- 상태 전이 guard
+- idempotency key
+- event log
 
-### 운영 리스크
+운영 리스크:
 
 - 서버 다운
-- watcher 중단
 - queue 적체
-- sweep 실패
+- DB 장애
+- 배포 실패
 
 대응:
 
-- checkpoint 기반 재시작
-- DLQ 도입
-- 모니터링 및 알림
+- PM2/restart policy
+- DLQ
+- backup/restore
+- rollback policy
 
-### 보안 리스크
+보안 리스크:
 
 - privateKey 노출
-- 내부자 접근
-- 로그에 민감 정보 포함
+- 내부자 오남용
+- 로그 민감정보 노출
 
 대응:
 
 - KMS/Vault
-- Key Access Audit
-- 로그 필터링
+- audit log
+- RBAC
+- redaction

@@ -1,334 +1,227 @@
-# API Guide (with Real Integration Flow)
+# API Guide
 
 ## Overview
 
-이 API는 Tron 네트워크 기반 멀티 파트너 입출금 정산 시스템입니다.
+이 문서는 파트너 연동 개발자가 입금 주소 발급, 입금 조회, callback 수신을 구현하기 위해 필요한 정보를 설명합니다.
 
-파트너사는 API를 통해 사용자 지갑을 생성하고, 입금 이벤트를 수신하며, 정산 데이터를 조회할 수 있습니다.
+현재 public Partner API의 핵심 흐름은 다음과 같습니다.
 
-본 시스템은 **입금 감지 → 확정 → 콜백 → 잔액 반영** 흐름으로 동작합니다.
-
----
-
-## 전체 흐름 (핵심)
-
-```
-Transfer → DETECTED → CONFIRMED → CALLBACK → SWEEP
-
-[1] 포털 접속 → Partner 생성 → API Key 발급
-[2] API 연동 시작 → API Key 인증
-[3] User 생성 (Wallet 자동 생성) → Deposit Address 확보
-[4] 사용자 입금 (Tron 전송)
-[5] 시스템 처리
-    DETECTED → CONFIRMED
-[6] Callback 수신 (핵심 이벤트)
-[7] 내부 잔액 반영
+```text
+1. Admin/운영자가 Partner를 생성하고 API Key를 발급
+2. Partner 서버가 x-api-key로 API 호출
+3. User 생성
+4. 시스템이 Deposit Wallet 자동 생성
+5. 사용자가 Deposit Wallet으로 TRC20 token 전송
+6. 시스템이 DETECTED -> CONFIRMED 처리
+7. Partner callbackUrl로 CONFIRMED callback 전송
+8. Partner 서버가 txHash/callbackId 기준으로 멱등 처리
 ```
 
 ---
 
-# 1. Getting Started
+## 1. Base URL
 
-## Supported Network
+환경별 API base URL은 운영자에게 전달받습니다.
 
-- Tron (TRC20 / USDT)
+예:
+
+```text
+https://api.example.com
+```
+
+Swagger:
+
+```text
+/docs/api
+```
 
 ---
 
-# 2. Authentication
+## 2. Authentication
 
-모든 요청은 API Key 기반으로 인증한다.
+Partner API는 API Key 인증을 사용합니다.
 
+Header:
+
+```http
+x-api-key: {PARTNER_API_KEY}
 ```
-Authorization: Bearer {API_KEY}
+
+주의:
+
+- `Authorization: Bearer`가 아니라 `x-api-key`를 사용합니다.
+- API Key는 Partner 단위로 발급됩니다.
+- API Key 원문은 최초 발급 시에만 확인 가능합니다.
+- API Key가 유출되면 즉시 운영자에게 rotate를 요청해야 합니다.
+
+---
+
+## 3. Pagination
+
+목록 API는 기본적으로 pagination을 사용합니다.
+
+Query:
+
+```text
+limit=20
+offset=0
+```
+
+Response:
+
+```json
+{
+  "data": [],
+  "total": 0,
+  "limit": 20,
+  "offset": 0
+}
 ```
 
 ---
 
-# 3. Step 1 — User 생성 (핵심 시작점)
+## 4. Create User
 
-## Request
+파트너 서비스의 사용자를 생성합니다.
 
-```
+요청 시 시스템은 해당 User에 대한 Deposit Wallet을 자동 생성합니다.
+
+Endpoint:
+
+```http
 POST /users
 ```
 
-## Request Body
+Headers:
 
+```http
+x-api-key: {PARTNER_API_KEY}
+Content-Type: application/json
 ```
+
+Request:
+
+```json
 {
   "externalUserId": "user_123"
 }
 ```
 
-## Response
+Response 예:
 
-```
+```json
 {
   "id": "user_uuid",
+  "partnerId": "partner_uuid",
   "externalUserId": "user_123",
-  "wallet": {
-    "id": "wallet_uuid",
-    "address": "TXXXXXXX"
-  },
-  "createdAt": "2026-03-01T00:00:00Z"
+  "isActive": true,
+  "wallets": [
+    {
+      "id": "wallet_uuid",
+      "address": "TXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "status": "ACTIVE"
+    }
+  ],
+  "createdAt": "2026-04-22T00:00:00.000Z",
+  "updatedAt": "2026-04-22T00:00:00.000Z"
 }
 ```
 
----
+응답 형태는 API 버전에 따라 일부 필드가 달라질 수 있으므로 실제 Swagger 응답도 함께 확인하세요.
 
-## 중요
+규칙:
 
-- User 생성 시 **Wallet 자동 생성**
-- 해당 Wallet 주소가 **입금 주소 (Deposit Address)**
-
----
-
-# 4. Step 2 — Deposit Address 전달
-
-User 생성 후 Wallet 주소를 사용자에게 전달한다.
-
-```
-Deposit Address: TXXXXXXX
-```
+- `externalUserId`는 Partner 내부에서 unique입니다.
+- 이미 생성된 사용자라면 중복 생성 대신 기존 사용자 조회 흐름을 사용하세요.
+- Wallet privateKey는 응답에 포함되지 않습니다.
 
 ---
 
-# 5. Step 3 — 사용자 입금
+## 5. Get Users
 
-사용자는 위 주소로 Tron (USDT)을 전송한다.
+Partner에 속한 User 목록을 조회합니다.
 
-설명:
+Endpoint:
 
-- TRC20 토큰 전송
-- 해당 주소로 들어온 트랜잭션을 시스템이 감지
-
----
-
-# 6. Deposit Flow
-
-입금은 다음 단계로 처리된다.
-
-```
-User → Deposit Address
-      ↓
-DETECTED
-      ↓
-CONFIRMED
-      ↓
-Callback
-      ↓
-Balance 반영
+```http
+GET /users
 ```
 
----
+Query:
 
-## 상태 정의
-
-### DETECTED
-
-- 블록에서 트랜잭션 감지
-- 아직 확정되지 않음
-
-### CONFIRMED
-
-- 지정된 블록 수 이후 확정
-- 이 시점부터 유효한 입금
-
----
-
-### 중요 규칙
-
-- CONFIRMED 이전 금액은 반영되지 않음
-- txHash 기준 중복 처리 방지
-
----
-
-# 7. Step 4 — Callback
-
-입금이 CONFIRMED 되면 Callback이 전송된다.
-
-## Request
-
-```
-POST {partner.callbackUrl}
-```
-
----
-
-## Headers
-
-```
-Content-Type: application/json
-X-Signature: {HMAC_SIGNATURE}
-```
-
----
-
-## Body
-
-```
-export interface IDepositConfirmedCallback {
-  event: 'CONFIRMED'; // 이벤트 타입, CONFIRMED: 입금 확정 완료
-  to: string; // 입금 대상 주소 (우리 시스템 deposit address)
-  from: string; //입금 발생 주소 (사용자 또는 외부 지갑)
-  depositId: string; // 내부 Deposit 식별자 (UUID)
-  externalUserId: string; // 파트너 시스템에서 사용하는 사용자 ID
-  txHash: string; // 블록체인 트랜잭션 해시 (고유값)
-  amount: string; // 입금 금액 (raw 값, decimals 적용 필요)
-  tokenSymbol: string; // 토큰 심볼 예: USDT, mUSDT
-  detectedAt: string; // ISO 8601, 입금 감지 시점 (Watcher에서 감지된 시간, UTC)
-  confirmedAt: string; // ISO 8601, 입금 확정 시점 (Confirmation 완료 시점, UTC)
-  confirmations: number; // 확정 기준 블록 컨펌 수, 예: 5 confirmations
-  blockNumber: number; // 해당 트랜잭션이 포함된 블록 번호
-  contractAddress: string; // 토큰 컨트랙트 주소 (TRC20)
-  callbackId: string; // Callback 고유 ID (재시도 / 추적용)
-}
-```
-
-## Notes
-
-- decimals=6 → 1000000 = 1.0 USDT
-- 시간 필드 (detectedAt, confirmedAt)는 UTC 기준 ISO8601 형식입니다.
-- amount는 decimals가 적용되지 않은 raw 값입니다.
-- callbackId는 재시도 시 동일하게 전달되며, 중복 처리 방지에 사용할 수 있습니다.
-- Callback은 CONFIRMED 상태에서만 발생합니다.
-- 반드시 HMAC 서명을 검증해야 합니다.
-
----
-
-## Callback 처리 (Node.js 예제)
-
-```js
-const express = require('express');
-const crypto = require('crypto');
-
-const app = express();
-app.use(express.json());
-
-const CALLBACK_SECRET = 'YOUR_CALLBACK_SECRET';
-
-app.post('/callback', (req, res) => {
-  const signature = req.headers['x-signature'];
-  const rawBody = JSON.stringify(req.body);
-
-  const expected = crypto.createHmac('sha256', CALLBACK_SECRET).update(rawBody).digest('hex');
-
-  if (signature !== expected) {
-    return res.status(401).send('Invalid signature');
-  }
-
-  const { event, data } = req.body;
-
-  if (event === 'deposit.confirmed') {
-    console.log('Deposit confirmed:', data);
-
-    // 해야 할 것
-    // - 내부 잔액 증가
-    // - txHash 기준 중복 처리 방지
-  }
-
-  res.status(200).send('OK');
-});
-
-app.listen(3000);
-```
-
----
-
-## 중요
-
-- 반드시 **200 OK 반환**
-- 실패 시 재시도 발생
-
-## Retry 정책
-
-- 최대 3회 재시도
-- 실패 시 status = FAILED 기록
-
-```
-CallbackLog.status
-
-PENDING → SUCCESS → FAILED
-```
-
-# 8. Callback Retry (Phase1.5 추가)
-
-운영자가 실패한 콜백을 수동으로 재시도할 수 있다.
-
----
-
-## 사용 목적
-
-- 파트너 서버 장애 대응
-- 네트워크 오류 복구
-
----
-
-## 사용 방법
-
-### 1) 선택 재시도
-
-경로:
-
-- 포털 > CallbackList
-- 실패 또는 특정 콜백 선택
-- "재시도" 버튼 클릭
-
-설명:
-
-- 선택된 callback_log 기준으로 재전송 수행
-- attemptCount 증가
-- 성공 시 status = SUCCESS로 변경
-
----
-
-### 2) 전체 재시도 (Failed 대상)
-
-경로:
-
-- 포털 > CallbackList
-- Status Filter → FAILED 선택
-- "전체 재시도" 실행
-
-설명:
-
-- FAILED 상태의 모든 callback_log 대상 재시도
-- batch 처리 방식으로 수행
-- maxAttempts 초과 여부 체크 후 실행
-
----
-
----
-
-# 9. Step 5 — Deposit 조회 (보조 기능)
-
-## Request
-
-```
-GET /deposits
-```
-
-## Query
-
-```
+```text
 limit=20
 offset=0
-status=CONFIRMED
 externalUserId=user_123
+keyword=user
+isActive=true
 ```
 
-## Response
+Example:
 
+```bash
+curl -X GET "https://api.example.com/users?limit=20&offset=0" \
+  -H "x-api-key: {PARTNER_API_KEY}"
 ```
+
+---
+
+## 6. Get User Detail
+
+Partner에 속한 특정 User를 `externalUserId`로 조회합니다.
+
+Endpoint:
+
+```http
+GET /users/{externalUserId}
+```
+
+Example:
+
+```bash
+curl -X GET "https://api.example.com/users/user_123" \
+  -H "x-api-key: {PARTNER_API_KEY}"
+```
+
+사용 목적:
+
+- Deposit Address 재확인
+- User 활성 상태 확인
+- Wallet 매핑 확인
+
+---
+
+## 7. Get Wallets
+
+Partner에 속한 Wallet 목록을 조회합니다.
+
+Endpoint:
+
+```http
+GET /wallets
+```
+
+Query:
+
+```text
+limit=20
+offset=0
+keyword=TXXXX
+status=ACTIVE
+```
+
+Response 예:
+
+```json
 {
   "data": [
     {
-      "id": "deposit_id",
-      "txHash": "0x123",
-      "amount": "100.0",
-      "status": "CONFIRMED",
-      "createdAt": "2026-03-01T00:00:00Z"
+      "id": "wallet_uuid",
+      "partnerId": "partner_uuid",
+      "userId": "user_uuid",
+      "address": "TXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "status": "ACTIVE",
+      "createdAt": "2026-04-22T00:00:00.000Z"
     }
   ],
   "total": 1,
@@ -337,125 +230,284 @@ externalUserId=user_123
 }
 ```
 
+주의:
+
+- Wallet은 입금 식별 주소입니다.
+- privateKey는 어떤 API에서도 제공되지 않습니다.
+
 ---
 
-# 10. Optional — Wallet 추가 생성
+## 8. Deposit Address 안내
 
-정책에 따라 Wallet을 추가 생성할 수 있다.
+User 생성 또는 Wallet 조회로 얻은 `address`를 사용자에게 Deposit Address로 안내합니다.
 
-## Request
+예:
 
+```text
+Network: Tron
+Token: USDT TRC20 또는 테스트넷 mUSDT
+Deposit Address: TXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 ```
-POST /wallets
+
+사용자 안내 시 주의:
+
+- 다른 네트워크의 토큰을 보내지 않도록 안내하세요.
+- 운영 환경 token과 테스트 환경 token을 혼동하지 않도록 안내하세요.
+- 주소를 잘못 입력한 전송은 복구가 어려울 수 있습니다.
+
+---
+
+## 9. Get Deposits
+
+입금 내역을 조회합니다.
+
+Endpoint:
+
+```http
+GET /deposits
 ```
 
-## Body
+Query:
 
+```text
+limit=20
+offset=0
+txHash={txHash}
 ```
+
+Response 예:
+
+```json
 {
-  "externalUserId": "user_123"
+  "data": [
+    {
+      "id": "deposit_uuid",
+      "partnerId": "partner_uuid",
+      "userId": "user_uuid",
+      "walletId": "wallet_uuid",
+      "tokenSymbol": "USDT",
+      "tokenContract": "TRC20_CONTRACT_ADDRESS",
+      "txHash": "transaction_hash",
+      "fromAddress": "T_FROM_ADDRESS",
+      "toAddress": "T_DEPOSIT_ADDRESS",
+      "amount": "100000000",
+      "blockNumber": 123456,
+      "status": "CONFIRMED",
+      "detectedAt": "2026-04-22T00:00:00.000Z",
+      "confirmedAt": "2026-04-22T00:01:00.000Z"
+    }
+  ],
+  "total": 1,
+  "limit": 20,
+  "offset": 0
 }
 ```
 
----
+Amount:
 
-## 정책
+- 현재 amount는 token raw amount 기준입니다.
+- USDT/mUSDT decimals가 6이면 `100000000`은 `100.000000` token입니다.
 
-- 기본: **User : Wallet = 1 : 1**
-- 필요 시 확장 가능
+상태:
 
----
-
-# 11. Error Handling
-
-## Response Format
-
+```text
+DETECTED   감지됨, 아직 확정 아님
+CONFIRMED  확정됨, callback 대상
+FAILED     처리 실패
 ```
+
+중요:
+
+- Partner 서비스의 잔액 반영은 `CONFIRMED` 이후에만 수행하세요.
+- `DETECTED` 상태는 사용자에게 "입금 확인 중" 정도로 표시하는 것이 안전합니다.
+
+---
+
+## 10. Callback
+
+Deposit이 CONFIRMED 되면 시스템은 Partner의 callbackUrl로 이벤트를 전송합니다.
+
+Method:
+
+```http
+POST {partner.callbackUrl}
+```
+
+Headers:
+
+```http
+Content-Type: application/json
+X-Signature: {HMAC_SHA256_SIGNATURE}
+```
+
+Body:
+
+```json
 {
-  "statusCode": 400,
-  "code": "INVALID_REQUEST",
-  "message": "Invalid parameter",
-  "timestamp": "2026-03-01T00:00:00Z",
-  "path": "/wallets"
+  "event": "CONFIRMED",
+  "to": "T_DEPOSIT_ADDRESS",
+  "from": "T_SENDER_ADDRESS",
+  "depositId": "deposit_uuid",
+  "externalUserId": "user_123",
+  "txHash": "transaction_hash",
+  "amount": "100000000",
+  "tokenSymbol": "USDT",
+  "confirmedAt": "2026-04-22T00:01:00.000Z",
+  "detectedAt": "2026-04-22T00:00:00.000Z",
+  "confirmations": 5,
+  "blockNumber": 123456,
+  "contractAddress": "TRC20_CONTRACT_ADDRESS",
+  "callbackId": "callback_uuid"
 }
 ```
 
----
+Callback 처리 규칙:
 
-## 주요 에러 코드
-
-- INVALID_REQUEST
-- UNAUTHORIZED
-- NOT_FOUND
-- DUPLICATE_TX
+- `X-Signature`를 반드시 검증하세요.
+- `txHash` 또는 `callbackId` 기준으로 멱등 처리하세요.
+- 정상 처리 후 `2xx` 응답을 반환하세요.
+- `2xx`가 아니거나 timeout이면 retry 대상이 됩니다.
 
 ---
 
-# 12. Full JavaScript Example
+## 11. HMAC Verification Example
+
+Node.js / Express 예제:
+
+```js
+const express = require('express');
+const crypto = require('crypto');
+
+const app = express();
+
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      req.rawBody = buf.toString('utf8');
+    },
+  }),
+);
+
+const CALLBACK_SECRET = process.env.CALLBACK_SECRET;
+
+app.post('/wallet/callback', (req, res) => {
+  const signature = req.header('x-signature');
+  const expected = crypto.createHmac('sha256', CALLBACK_SECRET).update(req.rawBody).digest('hex');
+
+  if (signature !== expected) {
+    return res.status(401).send('invalid signature');
+  }
+
+  const event = req.body;
+
+  if (event.event === 'CONFIRMED') {
+    // 1. txHash 또는 callbackId 중복 처리 확인
+    // 2. externalUserId 기준 사용자 매핑
+    // 3. amount를 decimals 기준으로 변환
+    // 4. 내부 잔액 반영
+  }
+
+  return res.status(200).send('ok');
+});
+
+app.listen(3000);
+```
+
+주의:
+
+- HMAC은 raw body 기준으로 검증하는 것을 권장합니다.
+- JSON stringify 방식이 서버마다 달라지면 서명이 불일치할 수 있습니다.
+
+---
+
+## 12. JavaScript API Example
 
 ```js
 const axios = require('axios');
 
-const API_BASE = 'API_BASE_URL';
-const API_KEY = 'YOUR_API_KEY';
+const API_BASE_URL = 'https://api.example.com';
+const API_KEY = process.env.PARTNER_API_KEY;
 
 const api = axios.create({
-  baseURL: API_BASE,
+  baseURL: API_BASE_URL,
   headers: {
-    Authorization: `Bearer ${API_KEY}`,
+    'x-api-key': API_KEY,
     'Content-Type': 'application/json',
   },
 });
 
-// 1. User 생성
-async function createUser() {
-  const res = await api.post('/users', {
-    externalUserId: 'user_123',
-  });
-
+async function createUser(externalUserId) {
+  const res = await api.post('/users', { externalUserId });
   return res.data;
 }
 
-// 2. Deposit Address 획득
-async function issueDepositAddress() {
-  const user = await createUser();
-  console.log('Address:', user.wallet.address);
+async function getUser(externalUserId) {
+  const res = await api.get(`/users/${externalUserId}`);
+  return res.data;
 }
 
-// 3. Deposit 조회
-async function getDeposits() {
-  const res = await api.get('/deposits', {
-    params: {
-      externalUserId: 'user_123',
-      status: 'CONFIRMED',
-    },
+async function getWallets() {
+  const res = await api.get('/wallets', {
+    params: { limit: 20, offset: 0, status: 'ACTIVE' },
   });
-
-  console.log(res.data);
+  return res.data;
 }
 
-// 실행 흐름
-async function run() {
-  await issueDepositAddress();
-
-  // 사용자 입금 (외부에서 수행)
-
-  // Callback 수신 후 처리
-
-  await getDeposits();
+async function getDepositByTxHash(txHash) {
+  const res = await api.get('/deposits', {
+    params: { txHash },
+  });
+  return res.data;
 }
 
-run();
+async function main() {
+  const user = await createUser('user_123');
+  console.log('created user:', user);
+
+  const found = await getUser('user_123');
+  console.log('user detail:', found);
+
+  const wallets = await getWallets();
+  console.log('wallets:', wallets);
+}
+
+main().catch(console.error);
 ```
 
 ---
 
-# 13. 핵심 요약
+## 13. Error Response
 
+오류 응답은 다음 형태를 따릅니다.
+
+```json
+{
+  "statusCode": 400,
+  "code": "BAD_REQUEST",
+  "message": "Invalid request",
+  "timestamp": "2026-04-22T00:00:00.000Z",
+  "path": "/users"
+}
 ```
-✔ createUser = 시작점 (Wallet 자동 생성)
-✔ Deposit Address = 입금 식별 키
-✔ CONFIRMED 이후만 유효
-✔ Callback = 실제 입금 이벤트
-✔ txHash = 멱등 처리 기준
-```
+
+주요 상황:
+
+| 상태 | 의미                     |
+| ---- | ------------------------ |
+| 400  | 요청 값 오류             |
+| 401  | API Key 누락 또는 불일치 |
+| 404  | 대상 없음                |
+| 409  | 중복 데이터              |
+| 500  | 서버 내부 오류           |
+
+---
+
+## 14. Integration Checklist
+
+- Partner API Key를 안전하게 저장했다.
+- callbackUrl이 외부에서 접근 가능하다.
+- callbackSecret으로 HMAC 검증을 구현했다.
+- callback은 txHash/callbackId 기준으로 멱등 처리한다.
+- 사용자는 Tron/TRC20 주소로만 입금하도록 안내한다.
+- CONFIRMED 이후에만 잔액을 반영한다.
+- API 호출 로그에 API Key 원문을 남기지 않는다.

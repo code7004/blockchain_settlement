@@ -1,202 +1,190 @@
 # Multi-Partner Blockchain Settlement System
 
-> 본 프로젝트는 상용 서비스 개발 과정에서 구현된 초기 버전을 기반으로, 사전 허락을 받아 민감 정보 제거 및 구조 정리를 거쳐 공개용으로 재구성한 코드입니다.
+Tron 기반 멀티 파트너 블록체인 입출금 정산 API 및 Admin/Developer Portal.
 
-Tron 기반 멀티 파트너 블록체인 입출금 정산 API
+이 프로젝트는 파트너 서비스에 입금 주소 발급, 체인 입금 감지, confirmation, callback, sweep, withdrawal, balance 조회 기능을 제공하기 위한 문서 기반 시스템이다.
 
-기존 현금 운영 서비스에 체인 정산 인프라를 연결하기 위한 백엔드 시스템이다.
-멀티 파트너 환경에서 체인 정산 인프라를 안정적으로 구축하기 위한 구조 증명 프로젝트다.
+현재 기준:
 
-입금 감지 · 확정 처리 · 콜백 · 출금 · 정산까지 전체 흐름을 포함한다.
+```text
+Phase3 Step3 - Idempotency & State Transition 진행 중
+```
 
 ---
 
 ## Key Features
 
-- 멀티 파트너 지원 (데이터 완전 분리)
-- Tron 기반 TRC20 (USDT) 입금 감지
-- Confirmation 이후만 잔액 반영
-- HMAC 기반 콜백 시스템
-- 중앙 Hot Wallet 기반 출금
-- 확장 가능한 Ledger 구조
-- txHash UNIQUE 기반 멱등 처리
-- Partner 단위 완전 데이터 격리
+- Partner / User / Wallet 기반 멀티 파트너 데이터 격리
+- Tron TRC20 token 입금 감지
+- Confirmation 이후 Deposit 확정
+- txHash unique 기반 멱등 처리
+- HMAC-SHA256 기반 callback
+- Callback retry 및 CallbackLog 추적
+- Deposit Wallet -> Hot Wallet Sweep
+- SweepJob / SweepLog 기반 broadcast -> confirm 추적
+- Partner API와 Portal API 분리
+- Admin / Developer Portal
+- JWT 기반 Portal 인증
+- API Key 기반 Partner 인증
+- Prisma / PostgreSQL 기반 상태 저장
 
 ---
 
-## High-Level Architecture
+## Architecture
 
-```
+```text
 [Partner Service]
+        |
+        | x-api-key / Partner API
+        v
+[NestJS API] ---- Prisma ----> [PostgreSQL]
+        |
+        | TronService
+        v
+[TronGrid / Tron Node] ----> [Tron Network]
 
-↓ REST API
+[Admin / Developer Portal]
+        |
+        | JWT / Portal API
+        v
+[NestJS API]
 
-[Wallet API (NestJS)]
+[Workers]
+  DepositWorker
+  ConfirmWorker
+  CallbackWorker
+  SweepWorker
+  ReclaimWorker
+```
 
-↓
+---
 
-[TronGrid / Tron Node]
+## Current Worker Flow
 
-↓
+```text
+DepositWorker
+  -> TRC20 Transfer event 감지
+  -> Deposit(status=DETECTED)
 
-[Tron Network]
+ConfirmWorker
+  -> Deposit(status=CONFIRMED)
+  -> CallbackLog 생성
+  -> SweepJob 생성
+  -> SweepLog(status=BROADCASTED) chain confirm 처리
+
+CallbackWorker
+  -> CallbackLog retry
+  -> SUCCESS / FAILED
+
+SweepWorker
+  -> SweepJob 처리
+  -> Deposit Wallet -> Hot Wallet token transfer
+  -> SweepLog(status=BROADCASTED)
+
+ReclaimWorker
+  -> AssetsReclaimJob 처리
+  -> Wallet token/TRX 회수
 ```
 
 ---
 
 ## Tech Stack
 
-### Backend(api)
+Backend:
 
-- NestJS
-- Prisma ORM
-- PostgreSQL
+- NestJS 11
 - TypeScript
-- AES-256 암호화 모듈
+- Prisma ORM 6
+- PostgreSQL
+- Swagger
+- JWT / Passport
+- bcrypt
+- TronWeb
+- Axios
 
-### Frontend (Dev Portal)
+Frontend:
 
 - React 19
-- Vite
+- Vite 7
+- React Router 7
 - Redux Toolkit
-- TailwindCSS
+- React Query
+- TailwindCSS 4
 
-### Blockchain
+Tooling:
 
-- Tron Network
-- TronGrid API
-- TRC20 (USDT 기준)
+- pnpm workspace
+- ESLint
+- Prettier
+- Husky
+- lint-staged
 
 ---
 
 ## Monorepo Structure
 
-```
+```text
 chain-wallet-service/
-  ├─ apps/
-  │ ├─ api/
-  │ └─ portal/
-  ├─ packages/
-  └─ infra/
+  apps/
+    api/       # NestJS API + Workers
+    portal/    # React Portal
+    tools/     # development/operation helper scripts
+
+  packages/
+    prisma/        # Prisma schema, migrations, seed
+    prisam-types/  # current package path
+
+  docs/       # project source-of-truth documents
 ```
+
+주의:
+
+- `packages/prisam-types`는 현재 실제 디렉터리명이다.
+- `apps/portal/src/pagas`, `swgger`, `withdrawall` 등 오탈자성 경로가 현재 소스에 존재한다. rename은 별도 리팩터링 범위로 다룬다.
 
 ---
 
-## 🔐 Environment Setup
+## Environment
 
-### 1. 🔒 Security Notes
+민감 정보는 저장소에 커밋하지 않는다.
 
--`.env` 파일은 절대 Git에 커밋하지 않습니다
+Root `.env` 주요 항목:
 
-- dev / prod 환경 변수는 반드시 분리합니다
-- private key 및 master key는 외부 노출 시 즉시 교체해야 합니다
-- ENV 설정에 따라 전체 시스템 동작이 결정됩니다
-- privateKey는 DB에 평문 저장되지 않는다.
-- AES-256으로 암호화되어 저장된다.
-- master key는 반드시 환경변수로만 관리한다.
-- DB가 유출되더라도 encryptedPrivateKey만 존재하므로 즉시 자금 탈취는 불가능하다.
-- Phase2에서 KMS/Vault로 이관 예정.
+```text
+NODE_ENV=development
+NAME=dev-api
+DATABASE_URL=postgresql://<user>:<password>@<host>:<port>/<database>
 
-### 2. API (.env)
+JWT_SECRET=
+DEV_API_KEY=
 
-`root/.env`
+TRON_FULL_HOST=https://nile.trongrid.io
+TRONGRID_API_KEY=
+TOKEN_SYMBOL=mUSDT
+TRON_USDT_CONTRACT=
 
-```
-# 애플리케이션 실행에 필요한 환경 변수 설정 파일입니다.
-# 민감 정보는 절대 저장소에 포함하지 않고, 각 환경(dev / prod)에서 별도로 관리해야 합니다.
+WALLET_MASTER_KEY_BASE64=
 
-NODE_ENV="development"
-#개발용 내부 API 접근 키
-#Test Console 또는 내부 테스트 요청에서 사용됩니다.
-# dev / prod DB는 반드시 분리해야 합니다
-# 운영 DB는 직접 접근 금지 원칙을 따릅니다
-DEV_API_KEY=""
-DATABASE_URL="postgresql://<user>:<password>@<host>:<port>/<database>"
+HOT_WALLET_ADDRESS=
+HOT_WALLET_PRIVATE_KEY=
 
-#potal 인증용 JWT 서명 키
-# - 로그인 토큰 생성 및 검증에 사용
-# - 반드시 충분한 길이의 랜덤 문자열 사용
-JWT_SECRET=""
+GAS_TANK_ADDRESS=
+GAS_TANK_PRIVATE_KEY=
 
-# TronGrid API 인증 키
-TRONGRID_API_KEY=""
-
-# Tron 노드 endpoint
-# Mainnet: "https://api.trongrid.io"
-# Nile Testnet: "https://nile.trongrid.io"
-TRON_FULL_HOST="https://nile.trongrid.io"
-
-#사용 토큰 심볼 `USDT` (Mainnet),- `mUSDT` (Testnet)
-TOKEN_SYMBOL="mUSDT"
-
-#TRC20 토큰 컨트랙트 주소
-TRON_USDT_CONTRACT="TW4JFMjGzYqycpuGBUfJeXGtbxXCyM1Dky"
-
-
-# 지갑 private key 암호화를 위한 마스터 키
-# - AES-256 암호화에 사용
-# - base64 인코딩된 32바이트 키 권장
-# - 코드/DB에 저장하지 않고 환경 변수로만 관리
-#
-# 보안 목적:
-# - DB 유출 시에도 private key 직접 노출 방지
-# - Phase4에서 KMS/Vault로 확장 가능
-WALLET_MASTER_KEY_BASE64=""
-
-
-# 중앙 출금 지갑 주소
-HOT_WALLET_ADDRESS=""
-# Hot Wallet의 private key
-HOT_WALLET_PRIVATE_KEY=""
-
-# 가스(TRX) 공급용 지갑 주소
-GAS_TANK_ADDRESS=""
-
-# 가스 지갑 private key
-GAS_TANK_PRIVATE_KEY=""
-
-
-# #########################################################
-# Worker / Polling 설정
-# #########################################################
-
-# Watcher cursor 사용 여부
-# `true`: 마지막 블록 기준 이어서 조회
-# `false`: 범위 기반 조회
-USE_WATCHER_POLLING_CURSOR="false"
-# 입금 감지 주기 (ms)
+USE_WATCHER_POLLING_CURSOR=false
 DEPOSIT_POLL_INTERVAL=15000
-# 입금 확정 처리 주기 (ms)
 CONFIRM_POLL_INTERVAL=5000
-
-# Callback 처리 주기 (ms)
 CALLBACK_POLL_INTERVAL=3000
-
-# Gas refill worker 실행 주기 (ms)
-# Deposit Wallet TRX 부족 시 자동 충전
 GASREFILL_POLL_INTERVAL=60000
-
-#Sweep worker 실행 주기 (ms)
-# Deposit Wallet → Hot Wallet 자산 이동
 SWEEP_POLL_INTERVAL=120000
+Reclaim_POLL_INTERVAL=120000
 
-
+OPENAI_API_KEY=
 ```
 
-### 3. Prisma
+Portal `.env` 예:
 
-`root/pakages/prisma/.env`
-
-```
-ADMIN_INIT_PASSWORD="verystrong"
-DATABASE_URL="postgresql://<user>:<password>@<host>:<port>/<database>"
-```
-
-### 4. Dev Portal(.env)
-
-`apps/portal/.env`
-
-```
+```text
 VITE_APP_NAME="BALLET DEV PORTAL"
 VITE_API_DEBUG="true"
 VITE_API_BASE_URL_DEV=""
@@ -208,46 +196,118 @@ VITE_USERNAME=""
 VITE_PASSWORD=""
 ```
 
----
+보안 원칙:
+
+- privateKey 평문 저장 금지
+- API Key 원문 저장 금지
+- callbackSecret 로그 출력 금지
+- Dev / Live DB와 wallet은 반드시 분리
+- Mainnet/Testnet token contract 혼용 금지
 
 ---
 
 ## Getting Started
 
-1. Install
+Install:
 
-> pnpm install
+```bash
+pnpm install
+```
 
-2. Run API
+Run API:
 
-   > pnpm dev:api
+```bash
+pnpm dev:api
+```
 
-3. Run Dev Portal
+Run Portal:
 
-   > pnpm dev:portal
+```bash
+pnpm dev:portal
+```
+
+Build:
+
+```bash
+pnpm build:api
+pnpm build:portal
+```
+
+Typecheck:
+
+```bash
+pnpm typecheck
+```
+
+---
+
+## Prisma
+
+Generate:
+
+```bash
+pnpm db:generate
+```
+
+Format:
+
+```bash
+pnpm db:format
+```
+
+Migrate:
+
+```bash
+pnpm db:migrate
+```
+
+Deploy migration:
+
+```bash
+pnpm db:deploy
+```
+
+---
 
 ## Swagger
 
-[http://localhost:3000/api](http://localhost:3000/api)
+Partner API:
+
+[http://localhost:3000/docs/api](http://localhost:3000/docs/api)
+
+Portal API:
+
+[http://localhost:3000/docs/partner](http://localhost:3000/docs/partner)
 
 ---
 
 ## Documentation
 
-상세 설계 문서는 docs 폴더 참고
+상세 설계 문서는 `docs` 폴더를 기준으로 한다.
 
 - [01_Project_Overview.md](./docs/01_Project_Overview.md)
 - [02_Architecture.md](./docs/02_Architecture.md)
 - [03_Database_Schema.md](./docs/03_Database_Schema.md)
 - [04_Sprint_RoadMap.md](./docs/04_Sprint_RoadMap.md)
 - [04_Sprint_Phase1.md](./docs/04_Sprint_Phase1.md)
-- [04_Sprint_Phase2.md](./docs/04_Sprint_Phase2.md)
+- [04_sprint_Phase2.md](./docs/04_sprint_Phase2.md)
 - [04_Sprint_Phase3.md](./docs/04_Sprint_Phase3.md)
 - [04_Sprint_Phase4.md](./docs/04_Sprint_Phase4.md)
 - [05_Technical_Conventions.md](./docs/05_Technical_Conventions.md)
-- [06_Security_Principle.md](./docs/06_Security_Principles.md)
+- [06_Security_Principles.md](./docs/06_Security_Principles.md)
 - [07_Operation_Policy.md](./docs/07_Operation_Policy.md)
 - [08_MockUSDT.md](./docs/08_MockUSDT.md)
 - [09_DevPortal_IA.md](./docs/09_DevPortal_IA.md)
+- [10_Sprint_Prompt.md](./docs/10_Sprint_Prompt.md)
+- [11_Git_Workflow_Guide.md](./docs/11_Git_Workflow_Guide.md)
 
 ---
+
+## Current Gaps
+
+- Phase3 Step3 상태 전이 guard 정리 중
+- Gas refill 중복 방지 / wallet cooldown 미완료
+- txHash lifecycle monitoring 고도화 필요
+- Deployment / PM2 / restart 정책 미완료
+- chain checkpoint, callback queue, double-entry ledger는 Phase4 예정
+- KMS / Vault, RBAC 고도화, alert는 Phase4 예정

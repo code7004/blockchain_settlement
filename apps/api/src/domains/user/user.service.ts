@@ -63,6 +63,8 @@ export class UserService {
           where: { userId: id },
           data: { status: dto.isActive ? WalletStatus.ACTIVE : WalletStatus.SUSPENDED },
         });
+
+        // todo: assets 반납
       }
 
       return user;

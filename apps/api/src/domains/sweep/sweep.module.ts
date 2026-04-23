@@ -1,10 +1,11 @@
-import { TronModule } from '@/infra/tron/tron.module';
 import { Module } from '@nestjs/common';
+import { PortalSweepController } from './sweep.controller';
+import { SweepRepository } from './sweep.repository';
 import { SweepService } from './sweep.service';
 
 @Module({
-  imports: [TronModule],
-  providers: [SweepService],
+  controllers: [PortalSweepController],
+  providers: [SweepService, SweepRepository],
   exports: [SweepService],
 })
 export class SweepModule {}
