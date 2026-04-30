@@ -9,8 +9,8 @@ export class GetExceptionLogsQueryDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @Min(1)
-  page?: number = 1;
+  @Min(0)
+  offset?: number = 0;
 
   @ApiPropertyOptional({ example: PAGINATION_DEFAULT_LIMIT })
   @IsOptional()

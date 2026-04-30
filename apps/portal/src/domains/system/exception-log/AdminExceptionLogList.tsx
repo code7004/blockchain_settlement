@@ -1,59 +1,42 @@
 import { useStateForObject } from '@/core/hooks';
 import { parseApiError } from '@/core/network';
-import { TxButton, TxCoolTable, TxCoolTablePagination, TxCoolTableScroller, TxFieldDropdown, TxLoading, TxModal, TxSearchInput, type ITxCoolTableOption, type ITxCoolTableRenderBodyProps } from '@/core/tx-ui';
-import { apiGetMembers } from '@/domains/member/member.api';
-import { defaultBodyRenderer } from '@/lib/defaultBodyRenderer';
+import { TxAgGrid, TxButton, TxFlex, TxForm, TxLoading, TxModal, type ITxAgGridOption } from '@/core/tx-ui';
+import { customColumnDefs } from '@/lib/defaultBodyRenderer';
+import { useAuth } from '@/store/hooks';
 import { useQuery } from '@tanstack/react-query';
+import type { CellClickedEvent, CellValueChangedEvent } from 'ag-grid-community';
 import dayjs from 'dayjs';
 import { useState } from 'react';
-import { apiDeleteExceptionLog, apiGetExceptionLog, apiGetExceptionLogs, ExceptionLogStatus, type ExceptionLogDetailDto, type ExceptionLogListDto } from './exception-log.api';
+import { apiDeleteExceptionLog, apiGetExceptionLog, apiGetExceptionLogs, apiPatchExceptionLog, ExceptionLogStatus, type ExceptionLogDetailDto, type ExceptionLogListDto, type GetExceptionLogsQueryDto } from './exception-log.api';
 
 const ITEMSIZE = 50;
 const METHODS = ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'];
 const STATUSES = Object.values(ExceptionLogStatus);
 
-type ExceptionLogTableRow = ExceptionLogListDto & { IDX: number };
-
-const tableOptions: ITxCoolTableOption = {
-  headers: ['IDX', 'path', 'message', 'status', 'assignedTo', 'method', 'createdAt'], // filter 리스트와 순서 일치 할것
+const tableOptions: ITxAgGridOption = {
+  headers: ['source', 'statusCode', 'errorName', 'path', 'message', 'method', 'status', 'workerName', 'writer', 'assigneeMemberUsername', 'createdAt'],
+  customColumnDefs: [...customColumnDefs, { field: 'assigneeMemberUsername', width: 14 }, { field: 'status', singleClickEdit: true, cellEditor: 'agSelectCellEditor', cellEditorParams: { values: STATUSES } }],
+  editColumns: ['status'],
   colWidths: [4, 20, 42, 10, 14, 6, 13],
-  bodyStyles: {
-    path: { maxWidth: '20em' },
-    message: { maxWidth: '42em', textAlign: 'left' },
-    assignedTo: { maxWidth: '14em' },
-  },
 };
 
 export default function AdminExceptionLogList() {
-  const [filter, setFilter] = useStateForObject({ page: 1, message: '', path: '', status: undefined as ExceptionLogStatus | undefined, method: '' });
+  const auth = useAuth();
+  const [filter, _filter] = useStateForObject<GetExceptionLogsQueryDto>({ offset: 0, limit: ITEMSIZE, message: '', path: '', status: undefined as ExceptionLogStatus | undefined, method: '' });
   const [selectedId, setSelectedId] = useState<string>();
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['exception-logs', filter],
     queryFn: async () => {
-      const res = await apiGetExceptionLogs({
-        page: filter.page,
-        limit: ITEMSIZE,
-        message: filter.message,
-        path: filter.path,
-        status: filter.status,
-        method: filter.method,
-      });
+      const res = await apiGetExceptionLogs(filter);
 
-      return {
-        data: (res.data?.map((item, idx) => ({ IDX: (filter.page - 1) * ITEMSIZE + idx + 1, ...item })) as ExceptionLogTableRow[]) ?? [],
-        total: res.total,
-      };
+      return { data: res.data, total: res.total };
     },
     staleTime: 1000 * 10,
     refetchInterval: 10000,
   });
 
-  const {
-    data: selectedLog,
-    isLoading: isDetailLoading,
-    // refetch: refetchSelected,
-  } = useQuery<ExceptionLogDetailDto | undefined>({
+  const { data: selectedLog, isLoading: isDetailLoading } = useQuery<ExceptionLogDetailDto | undefined>({
     queryKey: ['exception-log', selectedId],
     queryFn: async () => {
       if (!selectedId) return undefined;
@@ -62,64 +45,12 @@ export default function AdminExceptionLogList() {
     enabled: !!selectedId,
   });
 
-  const { data: members } = useQuery({
-    queryKey: ['exception-log-members'],
-    queryFn: async () => {
-      const res = await apiGetMembers({ offset: 0, limit: 100 });
-      return res.data ?? [];
-    },
-    staleTime: 1000 * 60,
-  });
-
-  // const memberOptions = (members ?? []).map((member) => ({
-  //   name: member.username,
-  //   value: member.id,
-  // }));
-
-  const memberNameById = new Map((members ?? []).map((member) => [member.id, member.username]));
   const canDelete = selectedLog?.status === ExceptionLogStatus.RESOLVED && dayjs(selectedLog.createdAt).isBefore(dayjs().subtract(30, 'day'));
 
-  function renderBody(props: ITxCoolTableRenderBodyProps<ExceptionLogTableRow>) {
-    if (props.key === 'assignedTo') {
-      return props.value ? (memberNameById.get(props.value as string) ?? props.value) : '-';
-    }
-
-    return defaultBodyRenderer(props);
+  function hdCellClicked(event: CellClickedEvent<ExceptionLogListDto>): void {
+    if (!event.data || event.colDef.field === 'status') return;
+    setSelectedId(event.data.id);
   }
-
-  function openSelectedLog(items: ExceptionLogTableRow[]) {
-    if (!items[0]) return;
-    setSelectedId(items[0].id);
-  }
-
-  // async function refreshSelected() {
-  //   await refetch();
-  //   if (selectedId) {
-  //     await refetchSelected();
-  //   }
-  // }
-
-  // async function changeStatus(status: ExceptionLogStatus | undefined) {
-  //   if (!selectedId || !status) return;
-
-  //   try {
-  //     await apiPatchExceptionLogStatus(selectedId, status);
-  //     await refreshSelected();
-  //   } catch (error) {
-  //     alert(parseApiError(error).message);
-  //   }
-  // }
-
-  // async function assignMember(assignedTo: string | null) {
-  //   if (!selectedId) return;
-
-  //   try {
-  //     await apiPatchExceptionLogAssign(selectedId, assignedTo);
-  //     await refreshSelected();
-  //   } catch (error) {
-  //     alert(parseApiError(error).message);
-  //   }
-  // }
 
   async function deleteSelected() {
     if (!selectedId || !canDelete) return;
@@ -134,24 +65,43 @@ export default function AdminExceptionLogList() {
     }
   }
 
+  async function hdCellValueChanged(event: CellValueChangedEvent<ExceptionLogListDto>) {
+    if (!event.data || !event.value) return;
+
+    try {
+      await apiPatchExceptionLog(event.data.id, { status: event.value, assigneeMemberId: auth.id });
+      await refetch();
+    } catch (error) {
+      alert(parseApiError(error).message);
+    }
+  }
+
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="flex items-end justify-between gap-3 mb-4">
-        {/* 헤더 리스트와 순서 일치 시킬것 */}
-        <TxSearchInput className="flex-1" caption="path" placeholder="Search path" onSubmitText={(path) => setFilter({ path, page: 1 })} onClear={(path) => setFilter({ path, page: 1 })} />
-        <TxSearchInput className="flex-1" caption="message" placeholder="Search message" onSubmitText={(message) => setFilter({ message, page: 1 })} onClear={(message) => setFilter({ message, page: 1 })} />
-        <TxFieldDropdown caption="status" data={STATUSES} onChangeValue={(status) => setFilter({ status: status.value as ExceptionLogStatus | undefined, page: 1 })} addNoChoiceItem />
-        <TxFieldDropdown caption="method" data={METHODS} onChangeValue={(method) => setFilter({ method: method.value, page: 1 })} addNoChoiceItem />
-        {/* <TxFieldDropdown caption="set status" data={STATUSES} value={selectedLog?.status} onChangeValue={(status) => void changeStatus(status.value as ExceptionLogStatus | undefined)} />
-        <TxFieldDropdown caption="assign" data={memberOptions} value={selectedLog?.assignedTo ?? undefined} onChangeValue={(member) => void assignMember((member.value as string | undefined) ?? null)} addNoChoiceItem /> */}
+    <TxFlex className="flex flex-1 flex-col">
+      <TxForm className="mb-4 flex flex-row items-end justify-between gap-3">
+        <TxForm.SearchInput className="flex-1" caption="path" placeholder="Search path" onSubmitText={(path) => _filter({ path, offset: 0 })} onClear={(path) => _filter({ path, offset: 0 })} />
+        <TxForm.SearchInput className="flex-1" caption="message" placeholder="Search message" onSubmitText={(message) => _filter({ message, offset: 0 })} onClear={(message) => _filter({ message, offset: 0 })} />
+        <TxForm.Dropdown caption="method" data={METHODS} onChangeValue={(method) => _filter({ method: method.value, offset: 0 })} addNoChoiceItem />
+        <TxForm.Dropdown caption="status" data={STATUSES} onChangeValue={(status) => _filter({ status: status.value as ExceptionLogStatus | undefined, offset: 0 })} addNoChoiceItem />
         <TxButton label="Delete" disabled={!canDelete} onClick={() => void deleteSelected()} />
-      </div>
+      </TxForm>
+      <TxAgGrid
+        rowData={data?.data}
+        option={tableOptions}
+        isLoading={isLoading}
+        defaultColDef={{ flex: 1 }}
+        offset={filter.offset}
+        pagination={{
+          currentPage: 1 + filter.offset / ITEMSIZE,
+          totalRows: data?.total ?? 0,
+          pageSize: ITEMSIZE,
+          onChangePage: (page) => _filter({ offset: (page - 1) * ITEMSIZE }),
+        }}
+        onCellClicked={hdCellClicked}
+        onCellValueChanged={hdCellValueChanged}
+      />
 
-      <TxCoolTableScroller className="flex-1 flex" footer={(data?.total ?? 0) > ITEMSIZE && <TxCoolTablePagination value={filter.page} itemCount={data?.total ?? 0} onChangePage={(page) => setFilter({ page })} itemVisibleCount={ITEMSIZE} />}>
-        {isLoading ? <TxLoading className="flex-1 h-full" visible={true} /> : <TxCoolTable className="w-full text-sm text-center" data={data?.data} renderBody={renderBody} options={tableOptions} useRowSelect onSelections={openSelectedLog} />}
-      </TxCoolTableScroller>
-
-      <TxModal visible={!!selectedId} title="Exception Log" onExit={() => setSelectedId(undefined)} className="max-w-5xl w-[90vw]">
+      <TxModal visible={!!selectedId} title="Exception Log" onExit={() => setSelectedId(undefined)}>
         {isDetailLoading ? (
           <TxLoading className="h-40" visible={true} />
         ) : (
@@ -163,8 +113,8 @@ export default function AdminExceptionLogList() {
               <span>{selectedLog?.method ?? '-'}</span>
               <span className="font-semibold">status</span>
               <span>{selectedLog?.status ?? '-'}</span>
-              <span className="font-semibold">assigned</span>
-              <span>{selectedLog?.assignedTo ? (memberNameById.get(selectedLog.assignedTo) ?? selectedLog.assignedTo) : '-'}</span>
+              <span className="font-semibold">assignee</span>
+              <span>{selectedLog?.assigneeMemberUsername ?? selectedLog?.assigneeMemberId ?? '-'}</span>
               <span className="font-semibold">writer</span>
               <span>{selectedLog?.writer ?? '-'}</span>
               <span className="font-semibold">path</span>
@@ -176,6 +126,6 @@ export default function AdminExceptionLogList() {
           </div>
         )}
       </TxModal>
-    </div>
+    </TxFlex>
   );
 }

@@ -12,7 +12,8 @@ export interface ExceptionLogListDto {
   path?: string | null;
   method?: string | null;
   status: ExceptionLogStatus;
-  assignedTo?: string | null;
+  assigneeMemberId?: string | null;
+  assigneeMemberUsername?: string | null;
   writer?: string | null;
   createdAt: string;
 }
@@ -22,7 +23,7 @@ export interface ExceptionLogDetailDto extends ExceptionLogListDto {
 }
 
 export interface GetExceptionLogsQueryDto {
-  page?: number;
+  offset: number;
   limit?: number;
   message?: string;
   path?: string;
@@ -38,12 +39,13 @@ export function apiGetExceptionLog(id: string) {
   return apiget<ExceptionLogDetailDto>(`/admin/exception-logs/${id}`);
 }
 
-export function apiPatchExceptionLogStatus(id: string, status: ExceptionLogStatus) {
-  return apipatch(`/admin/exception-logs/${id}/status`, { status });
+export interface UpdateExceptionLogDto {
+  status?: ExceptionLogStatus;
+  assigneeMemberId?: string | null;
 }
 
-export function apiPatchExceptionLogAssign(id: string, assignedTo: string | null) {
-  return apipatch(`/admin/exception-logs/${id}/assign`, { assignedTo });
+export function apiPatchExceptionLog(id: string, body: UpdateExceptionLogDto) {
+  return apipatch(`/admin/exception-logs/${id}`, removeUndefined(body));
 }
 
 export function apiDeleteExceptionLog(id: string) {

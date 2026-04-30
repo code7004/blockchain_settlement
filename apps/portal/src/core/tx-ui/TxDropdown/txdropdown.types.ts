@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { ReactNode } from 'react';
-import type { DeepPartial, ITxDropdownMultiProps, TxDropdownTheme } from '..';
+import type { DeepPartial, TxDropdownTheme } from '..';
 
 /**
  * -------------------------------------------------------
@@ -69,9 +69,6 @@ export interface ITxDropdownBaseProps<TValue = any> {
 export interface ITxDropdownProps<TData extends ITxDropdownData = ITxDropdownData> {
   value?: InferDropdownValue<TData>;
   data: TData | undefined;
-
-  warning?: string;
-  error?: string;
   className?: string;
   fixedHead?: string;
   defaultHead?: string;
@@ -85,19 +82,6 @@ export interface ITxDropdownProps<TData extends ITxDropdownData = ITxDropdownDat
   onChangeText?: (value: string | undefined) => void;
   onChangeNumb?: (value: number | undefined) => void;
   onChangeBool?: (value: boolean | undefined) => void;
-}
-
-/**
- * -------------------------------------------------------
- * 🔹 Field Props
- * -------------------------------------------------------
- */
-export interface ITxFieldDropdownProps<TData extends ITxDropdownData = ITxDropdownData> extends ITxDropdownProps<TData> {
-  caption?: string;
-}
-
-export interface ITxFieldDropdownMultiProps<TData extends ITxDropdownData = ITxDropdownData> extends ITxDropdownMultiProps<TData> {
-  caption?: string;
 }
 
 /* eslint-enable @typescript-eslint/no-explicit-any */

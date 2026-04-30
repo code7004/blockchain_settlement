@@ -10,6 +10,8 @@ import { castValue, safeRender, setNestedValue } from './TxCoolTable.utils';
 
 /**
  * TxCoolTable
+ * @deprecated TxCoolTable은 더 이상 사용되지 않습니다.
+ * AGGrid 기반 컴포넌트를 사용하세요.
  * -------------------------------------------------------------------
  * ✅ 범용 테이블 컴포넌트
  * - 정렬 / 선택 / 편집 / 테마 적용을 지원한다.
@@ -64,6 +66,10 @@ export function TxCoolTable<T extends Record<string, any>>({
   onSelections,
   ...rest
 }: ITxCoolTable<T>) {
+  if (import.meta.env.NODE_ENV !== 'production') {
+    console.warn('[Deprecated] TxCoolTable은 deprecated 입니다. TxAgGrid 기반 컴포넌트를 사용하세요.');
+  }
+
   const mergedTheme = useMemo(() => themeMerge(TxCoolTableTheme, theme, 'override'), [theme]);
   const stableData = useMemo<T[]>(() => data ?? [], [data]);
   const stableOptions = useMemo<ITxCoolTableOption>(() => options ?? {}, [options]);

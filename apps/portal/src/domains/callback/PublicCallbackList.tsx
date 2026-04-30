@@ -1,15 +1,14 @@
-import { type ITxCoolTableOption } from '@/core/tx-ui';
+import { type ITxAgGridOption } from '@/core/tx-ui';
 
 import { SYS_PAGE_ROLE } from '@/constants';
-import { bodyStyles, headStyles } from '@/lib/bodyStyles';
+import { customColumnDefs } from '@/lib/defaultBodyRenderer';
 import CallbackList from './CallbackList';
 
-const TableOptions: ITxCoolTableOption = {
-  headStyles,
-  bodyStyles,
-  headers: ['IDX', 'id', 'txHash', 'callbackUrl', 'lastStatusCode', 'status', 'reason', 'requestBody', 'attemptCount', 'maxAttempts', 'lastAttemptAt', 'requestSignature', 'depositId', 'writer', 'createdAt', 'updatedAt'],
+const TableOptions: ITxAgGridOption = {
+  headers: ['id', 'txHash', 'callbackUrl', 'lastStatusCode', 'status', 'reason', 'requestBody', 'attemptCount', 'maxAttempts', 'lastAttemptAt', 'requestSignature', 'depositId', 'writer', 'createdAt', 'updatedAt'],
   editColumns: ['callbackUrl'],
-  headerKeySeparator: true,
+  customColumnDefs,
+  rowSelection: { mode: 'multiRow' },
 };
 
 export default function PublicCallbackList() {

@@ -1,4 +1,4 @@
-import { SERVER_TYPE } from '@/constants';
+import { AGGrid_Theme_TYPE, SERVER_TYPE } from '@/constants';
 import { changeAxiosBaseUrl } from '@/core/network';
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
@@ -10,6 +10,7 @@ export interface IStateConfig extends Record<string, unknown> {
   server: string;
   baseUrl: string;
   partnerId?: string;
+  themeId?: AGGrid_Theme_TYPE;
 }
 
 const initialState: IStateConfig = {
@@ -21,6 +22,7 @@ const initialState: IStateConfig = {
   server: SERVER_TYPE.TEST,
   baseUrl: import.meta.env.VITE_API_BASE_URL_DEV,
   partnerId: undefined,
+  themeId: undefined,
 };
 
 type UpdatePayload = Partial<IStateConfig>;

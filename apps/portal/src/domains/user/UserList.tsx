@@ -1,11 +1,12 @@
 import { SYS_PAGE_ROLE } from '@/constants';
 import { useStateForObject } from '@/core/hooks';
 import { parseApiError } from '@/core/network';
-import type { ITxCoolTableOption } from '@/core/tx-ui';
-import { TxButton, TxCoolTable, TxCoolTablePagination, TxCoolTableScroller, TxFieldDropdown, TxFieldInput, TxLoading } from '@/core/tx-ui';
+import type { ITxAgGridOption } from '@/core/tx-ui';
+import { TxAgGrid, TxButton, TxFlex, TxForm } from '@/core/tx-ui';
 import { usePartners } from '@/hooks';
-import { defaultBodyRenderer } from '@/lib/defaultBodyRenderer';
 import { useQuery } from '@tanstack/react-query';
+import type { CellValueChangedEvent } from 'ag-grid-community';
+import dayjs from 'dayjs';
 import { useState } from 'react';
 import { apiPatchUser, getUsers, postAdminUser, type UserDto } from './user.api';
 
@@ -13,11 +14,10 @@ const ITEMSIZE = 50;
 
 const ActiveStatus = [true, false];
 
-export default function UserList({ tableOptions, pageRole }: { pageRole: SYS_PAGE_ROLE; tableOptions: ITxCoolTableOption }) {
-  const [filter, _filter] = useStateForObject<{ pageIdx: number; isActive?: boolean }>({ pageIdx: 1, isActive: undefined });
+export default function UserList({ tableOptions, pageRole }: { pageRole: SYS_PAGE_ROLE; tableOptions: ITxAgGridOption }) {
+  const [filter, _filter] = useStateForObject<{ offset: number; limit: number; isActive?: boolean }>({ offset: 0, limit: ITEMSIZE, isActive: undefined });
   const [form, _form] = useStateForObject<{ externalUserId: string }>({ externalUserId: 'string' });
   const [eMessage, _eMessage] = useState<Record<string, string | undefined>>();
-  const [selections, _selections] = useState<UserDto[]>([]);
 
   const { partnerId, _partnerId, partners } = usePartners(pageRole);
 
@@ -25,8 +25,8 @@ export default function UserList({ tableOptions, pageRole }: { pageRole: SYS_PAG
     queryKey: ['users', filter, partnerId],
     queryFn: async () => {
       if (!partnerId) return { data: [], total: 0 };
-      const res = await getUsers({ offset: (filter.pageIdx - 1) * ITEMSIZE, limit: ITEMSIZE, partnerId, isActive: filter.isActive });
-      return { data: (res.data?.map((e, idx) => ({ IDX: idx + 1, ...e })) as UserDto[]) ?? [], total: res.total };
+      const res = await getUsers({ ...filter, partnerId });
+      return { data: res.data, total: res.total };
     },
     enabled: !!partnerId && partnerId != '', // block condition
     staleTime: 1000 * 10,
@@ -47,7 +47,7 @@ export default function UserList({ tableOptions, pageRole }: { pageRole: SYS_PAG
 
       await postAdminUser({ partnerId: partnerId, externalUserId: form.externalUserId });
       await refetch();
-      _filter({ pageIdx: 1 });
+      _filter({ offset: 0 });
       _eMessage(undefined);
     } catch (err) {
       const e = parseApiError(err);
@@ -59,37 +59,38 @@ export default function UserList({ tableOptions, pageRole }: { pageRole: SYS_PAG
     }
   }
 
-  async function hdChangeActive() {
-    if (!selections || selections.length < 1) return;
-    const target = selections[0];
-    await apiPatchUser(target.id, { isActive: !target.isActive });
+  async function hdChangeRow(event: CellValueChangedEvent<UserDto>) {
+    await apiPatchUser(event.data.id, { isActive: event.value });
     refetch();
-    _selections([]);
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-2">
-      <div className="flex items-end justify-between gap-3 mb-4">
-        <div className="flex gap-3">
-          <TxFieldDropdown caption="partner" value={partnerId} data={partners} onChangeText={(t) => void (_partnerId(t), _filter({ pageIdx: 1 }))} />
-          <TxFieldDropdown caption="active" data={ActiveStatus} onChangeBool={(t) => _filter({ isActive: t, pageIdx: 1 })} addNoChoiceItem />
-        </div>
-        {selections?.length > 0 ? (
-          <TxButton label={selections[0].isActive ? '선택 비활성' : '선택 활성'} onClick={hdChangeActive} />
-        ) : (
-          <div className="flex items-end justify-between gap-3 ">
-            <TxFieldInput caption="externalUserId" onChangeText={(t) => _form({ externalUserId: t })} error={eMessage?.externalUserId} />
-            <TxButton label="생성하기" onClick={hdCreateItem} />
-          </div>
-        )}
-      </div>
-      <TxCoolTableScroller className="flex-1 flex" footer={(data?.total ?? 0) > ITEMSIZE && <TxCoolTablePagination value={filter.pageIdx} itemCount={data?.total ?? 0} onChangePage={(e) => _filter({ pageIdx: e })} itemVisibleCount={ITEMSIZE} />}>
-        {isLoading ? (
-          <TxLoading className="flex-1 h-full" visible={true} />
-        ) : (
-          <TxCoolTable className="w-full text-sm text-center" data={data?.data} renderBody={defaultBodyRenderer} options={tableOptions} onSelections={_selections} useCheckBox useRowSelect />
-        )}
-      </TxCoolTableScroller>
-    </div>
+    <TxFlex className="flex-1 flex-col gap-2">
+      <TxFlex className="flex-row items-end justify-between gap-3 mb-4">
+        <TxForm className="flex flex-row gap-3">
+          <TxForm.Dropdown caption="partner" value={partnerId} data={partners} onChangeText={(t) => void (_partnerId(t), _filter({ offset: 0 }))} />
+          <TxForm.Dropdown caption="active" data={ActiveStatus} onChangeBool={(t) => _filter({ isActive: t, offset: 0 })} addNoChoiceItem />
+          <TxForm.DayPickerRange caption="검색기간" value={[dayjs().add(-6, 'day').toDate(), dayjs().toDate()]} />
+        </TxForm>
+        <TxForm className="flex flex-row items-end justify-between gap-3 ">
+          <TxForm.Input caption="externalUserId" onChangeText={(t) => _form({ externalUserId: t })} error={eMessage?.externalUserId} />
+          <TxButton label="생성하기" onClick={hdCreateItem} />
+        </TxForm>
+      </TxFlex>
+      <TxAgGrid
+        rowData={data?.data}
+        option={tableOptions}
+        isLoading={isLoading}
+        defaultColDef={{ flex: 1 }}
+        offset={filter.offset}
+        pagination={{
+          currentPage: 1 + filter.offset / ITEMSIZE,
+          totalRows: data?.total ?? 0,
+          pageSize: ITEMSIZE,
+          onChangePage: (page) => _filter({ offset: (page - 1) * ITEMSIZE }),
+        }}
+        onCellValueChanged={hdChangeRow}
+      />
+    </TxFlex>
   );
 }

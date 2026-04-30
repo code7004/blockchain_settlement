@@ -1,7 +1,7 @@
 import { SERVER_TYPE, SYS_PAGE_ROLE } from '@/constants';
 import { useSafePolling, useStateForObject } from '@/core/hooks';
 import { parseApiError } from '@/core/network';
-import { TxButton, TxDropdown, TxFieldDropdown, TxFieldInput } from '@/core/tx-ui';
+import { TxButton, TxDropdown, TxForm } from '@/core/tx-ui';
 import { usePartners } from '@/hooks';
 import { useConfig } from '@/store/hooks';
 import { useQuery } from '@tanstack/react-query';
@@ -89,7 +89,7 @@ export default function DevConsolePage() {
       </div>
       {/* Private Key */}
       <div className="flex gap-2">
-        <TxFieldInput
+        <TxForm.Input
           caption="From Address private key"
           type="password"
           className="flex-1"
@@ -102,11 +102,11 @@ export default function DevConsolePage() {
 
       <TxDropdown value={partnerId} data={partners} onChangeText={_partnerId} />
       {/* To Address */}
-      <TxFieldDropdown caption="To Address" className="w-full" data={wallets} value={form.toAddress} onChangeText={(t) => setForm({ toAddress: t })} error={eMessage.address} />
+      <TxForm.Dropdown caption="To Address" className="w-full" data={wallets} value={form.toAddress} onChangeText={(t) => setForm({ toAddress: t })} error={eMessage.address} />
       {/* Token */}
-      <TxFieldInput caption="Contract symbol" readOnly className="w-full" value={form.tokenSymbol} onChangeText={(t) => setForm({ tokenSymbol: t })} />
+      <TxForm.Input caption="Contract symbol" readOnly className="w-full" value={form.tokenSymbol} onChangeText={(t) => setForm({ tokenSymbol: t })} />
       {/* Amount */}
-      <TxFieldInput caption="Amount(Token)" className="w-full text-end" type="number" step="0.1" min="0.1" placeholder="Amount" value={form.amount} onChangeNumber={(amount) => setForm({ amount })} />
+      <TxForm.Input caption="Amount(Token)" className="w-full text-end" type="number" step="0.1" min="0.1" placeholder="Amount" value={form.amount} onChangeNumber={(amount) => setForm({ amount })} />
       {/* Send */}
       <TxButton onClick={hdSend} label="Send" />
       {eMessage?.error && <div>{eMessage.error}</div>}

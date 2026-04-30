@@ -1,5 +1,5 @@
 import type { SVGProps } from 'react';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ITxDropdownBaseProps, ITxDropdownItem, ITxDropdownItemProps } from '.';
 import { TxDropdownTheme, cm, getItemKey, themeMerge } from '../';
 
@@ -8,7 +8,7 @@ export const TxDropdownBase = ({ className = '', theme, maxHeight = 500, head, d
   // ✅ 내부 상태
   const [visible, _visible] = useState<boolean>(false);
   const [items, _items] = useState<ITxDropdownItem[]>([]);
-  const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+  const [focusedIndex, _focusedIndex] = useState<number>(-1);
 
   const refAllCheckbox = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -75,11 +75,18 @@ export const TxDropdownBase = ({ className = '', theme, maxHeight = 500, head, d
 
     event.stopPropagation();
     _visible((v) => !v);
-    setFocusedIndex(-1);
+    _focusedIndex(-1);
   }
 
   // ✅ 정렬 헤더 연속 클릭 방지용 debounce 타이머
   const sortDebounceRef = useRef<number | null>(null);
+
+  const hdEmitChange = useCallback(
+    (nextItems: ITxDropdownItem[]) => {
+      onChangeInternal?.(nextItems);
+    },
+    [onChangeInternal],
+  );
 
   function hdSelectItem(item: ITxDropdownItem, event?: React.MouseEvent<HTMLDivElement, MouseEvent>) {
     // 🚫 debounce 중이면 무시
@@ -93,23 +100,20 @@ export const TxDropdownBase = ({ className = '', theme, maxHeight = 500, head, d
     event?.stopPropagation();
 
     if (props.multiple == true) {
-      item.checked = !item.checked;
-      _items([...items]);
+      const updated = items.map((i) => (i.value === item.value ? { ...i, checked: !i.checked } : i));
+      _items(updated);
 
-      hdEmitChange(items.filter((e) => e.checked && e.value !== null).map((e) => ({ value: e.value, name: e.name })));
+      hdEmitChange(updated.filter((e) => e.checked && e.value !== null).map((e) => ({ value: e.value, name: e.name })));
     } else {
       // blocking duple click
       if (item.checked) return;
-      // all items false
-      items.forEach((e) => (e.checked = false));
-      // choice item
-      item.checked = !item.checked;
-
-      _items([...items]);
+      // 단일 선택은 전체 해제 후 선택 항목만 체크한다.
+      const updated = items.map((i) => ({ ...i, checked: i.value === item.value }));
+      _items(updated);
 
       _visible(false);
 
-      hdEmitChange([item]);
+      hdEmitChange(updated.filter((i) => i.checked));
     }
   }
 
@@ -117,18 +121,18 @@ export const TxDropdownBase = ({ className = '', theme, maxHeight = 500, head, d
     if (!visible && (e.key === 'Enter' || e.key == 'ArrowDown' || e.key === ' ')) {
       e.preventDefault();
       _visible(true);
-      setFocusedIndex(props.multiple ? -1 : 0); // ✅ multiple이면 -1부터 시작 (전체선택 focus)
+      _focusedIndex(props.multiple ? -1 : 0); // multiple이면 전체 선택부터 포커스한다.
       return;
     }
 
     if (visible) {
       if (e.key === 'ArrowDown' || e.key === 'Tab') {
         e.preventDefault();
-        setFocusedIndex((i) => (i >= items.length - 1 ? (props.multiple ? -1 : 0) : i + 1));
+        _focusedIndex((i) => (i >= items.length - 1 ? (props.multiple ? -1 : 0) : i + 1));
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setFocusedIndex((i) => (i <= (props.multiple ? -1 : 0) ? items.length - 1 : i - 1));
+        _focusedIndex((i) => (i <= (props.multiple ? -1 : 0) ? items.length - 1 : i - 1));
       }
       if (e.key === 'Enter' || e.key === ' ' || e.key === 'Space') {
         e.preventDefault();
@@ -161,10 +165,6 @@ export const TxDropdownBase = ({ className = '', theme, maxHeight = 500, head, d
     const rt = updated.filter((e) => e.checked).map((e) => ({ value: e.value, name: e.name }));
 
     hdEmitChange(rt);
-  }
-
-  function hdEmitChange(items: ITxDropdownItem[]) {
-    onChangeInternal?.(items);
   }
 
   return (

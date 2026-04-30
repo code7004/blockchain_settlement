@@ -1,12 +1,11 @@
 import { SYS_PAGE_ROLE } from '@/constants';
-import type { ITxCoolTableOption } from '@/core/tx-ui';
-import { bodyStyles, headStyles } from '@/lib/bodyStyles';
+import type { ITxAgGridOption } from '@/core/tx-ui';
+import { customColumnDefs } from '@/lib/defaultBodyRenderer';
 import UserList from './UserList';
 
-const TableOptions: ITxCoolTableOption = {
-  headStyles,
-  bodyStyles,
-  editColumns: [],
+const TableOptions: ITxAgGridOption = {
+  customColumnDefs: customColumnDefs,
+  editColumns: ['isActive'],
   addHeaders: [],
   hiddenHeaders: [],
 };

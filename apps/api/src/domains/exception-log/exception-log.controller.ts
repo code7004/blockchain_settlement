@@ -4,7 +4,7 @@ import { MemberRole } from '@prisma/client';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetExceptionLogsQueryDto } from './dto/get-exception-logs.query.dto';
-import { AssignExceptionLogDto, UpdateExceptionLogStatusDto } from './dto/update-exception-log.dto';
+import { UpdateExceptionLogDto } from './dto/update-exception-log.dto';
 import { ExceptionLogService } from './exception-log.service';
 
 interface AdminRequest extends Request {
@@ -30,14 +30,9 @@ export class AdminExceptionLogController {
     return this.service.findOne(id);
   }
 
-  @Patch(':id/status')
-  updateStatus(@Param('id') id: string, @Body() body: UpdateExceptionLogStatusDto) {
-    return this.service.updateStatus(id, body);
-  }
-
-  @Patch(':id/assign')
-  assign(@Param('id') id: string, @Body() body: AssignExceptionLogDto) {
-    return this.service.assign(id, body);
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() body: UpdateExceptionLogDto) {
+    return this.service.update(id, body);
   }
 
   @Delete(':id')

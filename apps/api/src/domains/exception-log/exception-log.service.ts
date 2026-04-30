@@ -2,7 +2,7 @@ import { EnvService } from '@/core/env/env.service';
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ExceptionLogStatus, MemberRole } from '@prisma/client';
 import { GetExceptionLogsQueryDto } from './dto/get-exception-logs.query.dto';
-import { AssignExceptionLogDto, UpdateExceptionLogStatusDto } from './dto/update-exception-log.dto';
+import { UpdateExceptionLogDto } from './dto/update-exception-log.dto';
 import { ExceptionLogRepository } from './exception-log.repository';
 import { CaptureApiExceptionInput, CaptureWorkerExceptionInput, CreateExceptionLogInput } from './exception-log.types';
 
@@ -21,6 +21,7 @@ export class ExceptionLogService {
   ) {}
 
   async findAll(query: GetExceptionLogsQueryDto) {
+    // throw new Error('dkdkdkdk');
     return this.repository.findAll(query);
   }
 
@@ -28,14 +29,20 @@ export class ExceptionLogService {
     return this.repository.findOne(id);
   }
 
-  async updateStatus(id: string, dto: UpdateExceptionLogStatusDto) {
+  async update(id: string, dto: UpdateExceptionLogDto) {
     await this.ensureActive(id);
-    return this.repository.updateStatus(id, dto.status);
-  }
 
-  async assign(id: string, dto: AssignExceptionLogDto) {
-    await this.ensureActive(id);
-    return this.repository.assign(id, dto.assignedTo ?? null);
+    if (dto.status === undefined && dto.assigneeMemberId === undefined) {
+      throw new BadRequestException({
+        code: 'INVALID_UPDATE',
+        message: 'At least one of status or assigneeMemberId is required',
+      });
+    }
+
+    return this.repository.update(id, {
+      status: dto.status,
+      assigneeMemberId: dto.assigneeMemberId,
+    });
   }
 
   async softDelete(id: string, role?: MemberRole) {

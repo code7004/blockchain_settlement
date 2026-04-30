@@ -4,8 +4,19 @@ import React, { type ReactNode } from 'react';
 import { TxCoolTablePagenationTheme, TxCoolTableTheme } from '.';
 import { type DeepPartial } from '..';
 
+type Deprecated<T> = T & {
+  /**
+   * @deprecated TxCoolTable은 deprecated 입니다.
+   */
+  __deprecated__?: never;
+};
+/**
+ * @deprecated TxCoolTable은 deprecated 입니다.
+ */
 export type ITxCoolTableSortType = 'asc' | 'desc' | 'none' | undefined;
-
+/**
+ * @deprecated TxCoolTable은 deprecated 입니다.
+ */
 export interface ITxCoolTable<T extends Record<string, unknown> = any> {
   id?: string;
   caption?: string;
@@ -38,8 +49,10 @@ export interface ITxCoolTable<T extends Record<string, unknown> = any> {
   onChangeCell?: (change: ITxCoolTableChangeCellEvent<T>) => Promise<boolean> | boolean;
   onSelections?: (items: T[]) => Promise<void> | void;
 }
-
-export interface ITxCoolTableOption {
+/**
+ * @deprecated TxCoolTable은 deprecated 입니다.
+ */
+export type ITxCoolTableOption = Deprecated<{
   hiddenHeader?: boolean;
   headerKeySeparator?: boolean; // key에 "." 있을 때 중첩 접근 허용 여부
   headers?: string[]; // 표시할 헤더 목록 (없으면 data의 key 사용)
@@ -52,8 +65,10 @@ export interface ITxCoolTableOption {
   editColumns?: '*' | string[]; // 편집 허용 컬럼
   bodyStyles?: Record<string, React.CSSProperties>; // body 스타일 매핑
   headStyles?: Record<string, React.CSSProperties>; // head 스타일 매핑
-}
-
+}>;
+/**
+ * @deprecated TxCoolTable은 deprecated 입니다.
+ */
 export interface ITxCoolTableChangeCellEvent<T extends Record<string, any> = any, ExtraKey extends string = never> {
   row: number;
   col: number;
@@ -62,7 +77,9 @@ export interface ITxCoolTableChangeCellEvent<T extends Record<string, any> = any
   newValue: any;
   rowdata: T;
 }
-
+/**
+ * @deprecated TxCoolTable은 deprecated 입니다.
+ */
 export interface ITxCoolTableRenderBodyProps<T extends Record<string, any> = any, ExtraKey extends string = never> {
   value: any;
   row: number;
@@ -73,7 +90,9 @@ export interface ITxCoolTableRenderBodyProps<T extends Record<string, any> = any
   element?: ReactNode;
   onChangeCell?: (change: ITxCoolTableChangeCellEvent<T>) => void;
 }
-
+/**
+ * @deprecated TxCoolTable은 deprecated 입니다.
+ */
 export interface ITxCoolTableRenderHeadProps<T extends Record<string, any> = any, ExtraKey extends string = never> {
   colIdx?: number;
   key: Extract<keyof T, string> | ExtraKey;
@@ -81,7 +100,9 @@ export interface ITxCoolTableRenderHeadProps<T extends Record<string, any> = any
   editEmoji?: string;
   sortEmoji?: string;
 }
-
+/**
+ * @deprecated TxCoolTable은 deprecated 입니다.
+ */
 export interface ITxCoolTableBaseProps<T extends Record<string, unknown>> {
   styleId: string;
   theme: typeof TxCoolTableTheme;
@@ -94,7 +115,9 @@ export interface ITxCoolTableBaseProps<T extends Record<string, unknown>> {
   onFocus?: (row: number, col: number, header: string) => void;
   locale?: (key: string) => string;
 }
-
+/**
+ * @deprecated TxCoolTable은 deprecated 입니다.
+ */
 export interface ITxCoolTableTRProps<T extends Record<string, unknown> = any> extends ITxCoolTableBaseProps<T> {
   headers: string[];
   sorts: Record<string, ITxCoolTableSortType>;
@@ -103,7 +126,9 @@ export interface ITxCoolTableTRProps<T extends Record<string, unknown> = any> ex
   onToggleRow: (row: number) => void;
   onClickRow: (row: number) => void;
 }
-
+/**
+ * @deprecated TxCoolTable은 deprecated 입니다.
+ */
 export interface ITxCoolTableTDProps<T extends Record<string, unknown> = Record<string, unknown>> extends ITxCoolTableBaseProps<T> {
   col: number;
   sort: ITxCoolTableSortType;
@@ -111,7 +136,9 @@ export interface ITxCoolTableTDProps<T extends Record<string, unknown> = Record<
   style: React.CSSProperties;
   value?: unknown;
 }
-
+/**
+ * @deprecated TxCoolTable은 deprecated 입니다.
+ */
 export interface ITxCoolTablePaginationProps {
   itemCount: number;
   value: number;
@@ -124,8 +151,9 @@ export interface ITxCoolTablePaginationProps {
   onChangePageGroup?: (page: number, group: number) => void;
   limitPage?: number;
 }
-
-export interface ITxFlexLayoutProps {
+/**
+ * @deprecated TxCoolTable은 deprecated 입니다.
+ */ export interface ITxFlexLayoutProps {
   className?: string;
   children: React.ReactElement;
   onLayout?: (evt: HTMLDivElement) => void;
@@ -134,8 +162,9 @@ export interface ITxFlexLayoutProps {
   resetDetecter?: number | string | boolean | Record<string, any>;
   footer?: ReactNode;
 }
-
-export interface ITxCoolTableScrollerRef {
+/**
+ * @deprecated TxCoolTable은 deprecated 입니다.
+ */ export interface ITxCoolTableScrollerRef {
   getBottomState?: () => {
     isAtBottom: boolean;
     scrollHeight: number;

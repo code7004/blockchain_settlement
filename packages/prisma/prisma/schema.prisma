@@ -131,6 +131,8 @@ model Member {
   /// 생성 / 수정
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  assignedExceptionLogs ExceptionLog[] @relation("ExceptionLogAssignee")
 }
 
 /// ------------------------------------------------------------------
@@ -500,18 +502,19 @@ model ExceptionLog {
   depositId  String? @db.Uuid
   partnerId  String? @db.Uuid
 
-  status     ExceptionLogStatus @default(OPEN)
-  assignedTo String?            @db.Uuid
-  writer     String?            @db.VarChar(50)
-  isDeleted  Boolean            @default(false)
-  deletedAt  DateTime?          @db.Timestamptz(3)
+  status           ExceptionLogStatus @default(OPEN)
+  assigneeMemberId String?            @db.Uuid
+  assigneeMember   Member?            @relation("ExceptionLogAssignee", fields: [assigneeMemberId], references: [id], onDelete: SetNull)
+  writer           String?            @db.VarChar(50)
+  isDeleted        Boolean            @default(false)
+  deletedAt        DateTime?          @db.Timestamptz(3)
 
   createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([source])
   @@index([statusCode])
   @@index([status])
-  @@index([assignedTo])
+  @@index([assigneeMemberId])
   @@index([isDeleted])
   @@index([partnerId])
   @@index([depositId])

@@ -1,3 +1,4 @@
+import { PAGINATION_DEFAULT_LIMIT } from '@/core/constants';
 import { PrismaService } from '@/infra/prisma/prisma.service';
 import { Injectable } from '@nestjs/common';
 import { ExceptionLogStatus, Prisma } from '@prisma/client';
@@ -15,9 +16,8 @@ export class ExceptionLogRepository {
   }
 
   async findAll(dto: GetExceptionLogsQueryDto) {
-    const limit = dto.limit ?? 20;
-    const page = dto.page ?? 1;
-    const offset = (page - 1) * limit;
+    const limit = dto.limit ?? PAGINATION_DEFAULT_LIMIT;
+    const offset = dto.offset ?? 0;
 
     const where: Prisma.ExceptionLogWhereInput = { isDeleted: false };
 
@@ -43,38 +43,53 @@ export class ExceptionLogRepository {
         take: limit,
         skip: offset,
         orderBy: { createdAt: 'desc' },
+        include: {
+          assigneeMember: {
+            select: { username: true },
+          },
+        },
+      }),
+      this.prisma.exceptionLog.count({ where }),
+    ]);
+
+    return {
+      data: data.map(({ assigneeMember, ...item }) => ({
+        ...item,
+        assigneeMemberUsername: assigneeMember?.username ?? null,
+      })),
+      total,
+      limit,
+      offset,
+    };
+  }
+
+  async findOne(id: string) {
+    return this.prisma.exceptionLog
+      .findFirst({
+        where: { id, isDeleted: false },
         select: {
           id: true,
           message: true,
           path: true,
           method: true,
           status: true,
-          assignedTo: true,
+          assigneeMemberId: true,
+          assigneeMember: {
+            select: { username: true },
+          },
           writer: true,
+          stack: true,
           createdAt: true,
         },
-      }),
-      this.prisma.exceptionLog.count({ where }),
-    ]);
-
-    return { data, total, limit, offset, page };
-  }
-
-  async findOne(id: string) {
-    return this.prisma.exceptionLog.findFirst({
-      where: { id, isDeleted: false },
-      select: {
-        id: true,
-        message: true,
-        path: true,
-        method: true,
-        status: true,
-        assignedTo: true,
-        writer: true,
-        stack: true,
-        createdAt: true,
-      },
-    });
+      })
+      .then((item) =>
+        item
+          ? {
+              ...item,
+              assigneeMemberUsername: item.assigneeMember?.username ?? null,
+            }
+          : null,
+      );
   }
 
   async findDeleteTarget(id: string) {
@@ -88,26 +103,24 @@ export class ExceptionLogRepository {
     });
   }
 
-  async updateStatus(id: string, status: ExceptionLogStatus) {
-    return this.prisma.exceptionLog.update({
-      where: { id },
-      data: { status },
-      select: {
-        id: true,
-        status: true,
-        assignedTo: true,
-      },
-    });
-  }
+  async update(id: string, input: { status?: ExceptionLogStatus; assigneeMemberId?: string | null }) {
+    const data: Prisma.ExceptionLogUncheckedUpdateInput = {};
 
-  async assign(id: string, assignedTo: string | null) {
+    if (input.status !== undefined) {
+      data.status = input.status;
+    }
+
+    if (input.assigneeMemberId !== undefined) {
+      data.assigneeMemberId = input.assigneeMemberId;
+    }
+
     return this.prisma.exceptionLog.update({
       where: { id },
-      data: { assignedTo },
+      data,
       select: {
         id: true,
         status: true,
-        assignedTo: true,
+        assigneeMemberId: true,
       },
     });
   }

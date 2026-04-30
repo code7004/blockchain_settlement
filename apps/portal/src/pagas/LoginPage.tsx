@@ -5,7 +5,7 @@ import { TxDropdownServer } from '@/components/TxDropdownServer';
 import { useStateForObject } from '@/core/hooks';
 import { apipost, type IApiResponse } from '@/core/network';
 import { parseApiError } from '@/core/network/api.utils';
-import { TxButton, TxCapsLockCheck, TxCard, TxFieldInput, TxFlex, TxForm, TxHeader } from '@/core/tx-ui';
+import { TxButton, TxCapsLockCheck, TxCard, TxFlex, TxForm, TxHeader } from '@/core/tx-ui';
 import { RexGroup } from '@/lib/regGroup';
 import { authAction } from '@/store/auth';
 import { useAppDispatch, useAuth } from '@/store/hooks';
@@ -81,12 +81,12 @@ export default function SignInPage() {
 
           <TxForm.Flex className="flex gap-6 items-center">
             <TxForm.Label className="w-[6em] text-end" htmlFor="id" children={'유저네임'} />
-            <TxFieldInput className="flex-1" name="username" value={form.username} onChangeText={(username) => helper({ username })} autoComplete="off" error={eMessage?.username} />
+            <TxForm.Input className="flex-1" name="username" value={form.username} onChangeText={(username) => helper({ username })} autoComplete="off" error={eMessage?.username} />
           </TxForm.Flex>
 
           <TxForm.Flex className="flex gap-6 items-center">
             <TxForm.Label className="w-[6em] text-end" htmlFor="name" children="비밀번호" />
-            <TxFieldInput className="flex-1" type="password" value={form.password} onChangeText={(password) => helper({ password })} error={eMessage?.password} autoComplete="off" />
+            <TxForm.Input className="flex-1" type="password" value={form.password} onChangeText={(password) => helper({ password })} error={eMessage?.password} autoComplete="off" />
           </TxForm.Flex>
 
           {/* <TxCheckBox className="w-[em]" label={`자동로그인(${config.autoLogin ? '24시간' : '1시간'})`} checked={config.autoLogin} onChange={hdAutoLogin} /> */}

@@ -1,32 +1,31 @@
 import { SYS_PAGE_ROLE } from '@/constants';
 import { useStateForObject } from '@/core/hooks';
 import { parseApiError } from '@/core/network';
-import { TxButton, TxCoolTable, TxCoolTablePagination, TxCoolTableScroller, TxFieldInput, TxLoading, TxModal, copyToClipboard, type ITxCoolTableChangeCellEvent, type ITxCoolTableOption, type ITxCoolTableRenderBodyProps } from '@/core/tx-ui';
-import { defaultBodyRenderer } from '@/lib/defaultBodyRenderer';
+import { TxAgGrid, TxButton, TxFlex, TxForm, TxModal, copyToClipboard, type ITxCoolTableOption } from '@/core/tx-ui';
 import { useAuth } from '@/store/hooks';
 import { useQuery } from '@tanstack/react-query';
-import _ from 'lodash';
-import { useState, type ReactNode } from 'react';
+import type { CellClickedEvent, CellValueChangedEvent } from 'ag-grid-community';
+import { useState } from 'react';
 import { apiCreatePartner, apiGetPartners, apiPatchPartner, apiResetPartnerApiKey, type PartnerCreateDto, type PartnerDto } from './partner.api';
 
 const ITEMSIZE = 50;
+const QUERYKEY = 'partners';
 
 export default function AdminPartnerList({ pageRole, tableOptions }: { pageRole: SYS_PAGE_ROLE; tableOptions: ITxCoolTableOption }) {
   const auth = useAuth();
-  const [filter, _filter] = useStateForObject({ pageIdx: 1, memberId: pageRole == SYS_PAGE_ROLE.PUBLIC ? (auth.id ?? undefined) : undefined });
+  const [filter, _filter] = useStateForObject({ offset: 0, limit: ITEMSIZE, memberId: pageRole == SYS_PAGE_ROLE.PUBLIC ? (auth.id ?? undefined) : undefined });
   const [form, _form] = useStateForObject<PartnerCreateDto>({ name: '', memberId: auth.id ?? '', callbackUrl: `${import.meta.env.VITE_API_BASE_URL_DEV}/portal/callbacks-test`, callbackSecret: 'supersecret123' });
   const [eMessage, _eMessage] = useState<Record<string, string | undefined>>();
-  const [selections, _selections] = useState<PartnerDto[]>([]);
   const [modal, _modal] = useStateForObject({ isOpen: false, apiKey: '' });
   const [copied, _copied] = useState(false);
 
   const { data, refetch, isLoading } = useQuery({
-    queryKey: ['partners', filter],
+    queryKey: [QUERYKEY, filter],
     queryFn: async () => {
-      const res = await apiGetPartners({ offset: (filter.pageIdx - 1) * ITEMSIZE, limit: ITEMSIZE, ..._.pick(filter, 'memberId') });
-      return { data: res.data?.map((e, idx) => ({ IDX: idx + 1, ...e })) as PartnerDto[], total: res.total };
+      const res = await apiGetPartners(filter);
+      return { data: res.data, total: res.total };
     },
-    staleTime: 1000 * 10,
+    staleTime: 1000 * 60,
   });
 
   const validateForm = () => {
@@ -43,8 +42,8 @@ export default function AdminPartnerList({ pageRole, tableOptions }: { pageRole:
 
       const res = await apiCreatePartner(form);
       _modal({ isOpen: true, apiKey: res.apiKey });
-      await refetch();
-      _filter({ pageIdx: 1 });
+      refetch();
+      _filter({ offset: 0 });
       _eMessage(undefined);
     } catch (err) {
       const e = parseApiError(err);
@@ -55,37 +54,12 @@ export default function AdminPartnerList({ pageRole, tableOptions }: { pageRole:
     }
   }
 
-  async function hdChangeActive() {
-    if (!selections || selections.length < 1) return;
-    const target = selections[0];
-    await apiPatchPartner(target.id, { isActive: !target.isActive });
-    refetch();
-    _selections([]);
-  }
-
-  async function hdChangeCell(change: ITxCoolTableChangeCellEvent<PartnerDto>): Promise<boolean> {
-    if (!confirm('내용을 변경 하시겠습니까?')) return false;
+  async function hdCellChange(event: CellValueChangedEvent<PartnerDto>) {
     try {
-      await apiPatchPartner(change.rowdata.id, { [change.key]: change.newValue as string });
-      return true;
+      await apiPatchPartner(event.data.id, { [event.colDef.field as string]: event.value });
+      refetch();
     } catch (err) {
       alert(parseApiError(err)?.message);
-      return false;
-    }
-  }
-
-  async function hdApiKeyReset(id: string) {
-    const res = await apiResetPartnerApiKey(id);
-    await refetch();
-    _modal({ isOpen: true, apiKey: res.data.apiKey });
-  }
-
-  function customRederBody(props: ITxCoolTableRenderBodyProps<PartnerDto, 'key-reset'>): ReactNode {
-    switch (props.key) {
-      case 'key-reset':
-        return <TxButton variant="text" label="API KEY 재발행" onClick={() => hdApiKeyReset(props.rowdata.id)} />;
-      default:
-        return defaultBodyRenderer(props);
     }
   }
 
@@ -94,28 +68,38 @@ export default function AdminPartnerList({ pageRole, tableOptions }: { pageRole:
     _copied(true);
   }
 
-  if (!data) return <TxLoading className="flex-1" visible={true} />;
+  async function hdCellClick(event: CellClickedEvent<PartnerDto>) {
+    if (event.column.getColId() == 'key-reset' && event.data) {
+      const res = await apiResetPartnerApiKey(event.data.id);
+      _modal({ isOpen: true, apiKey: res.data.apiKey });
+    }
+  }
+
   return (
-    <div className="flex flex-1 flex-col gap-2">
-      <div className="flex items-end justify-end gap-3 mb-4">
-        {selections?.length > 0 ? (
-          <TxButton label={selections[0].isActive ? '선택 비활성' : '선택 활성'} onClick={hdChangeActive} />
-        ) : (
-          <>
-            <TxFieldInput caption="name" onChangeText={(t) => _form({ name: t })} error={eMessage?.name} />
-            <TxFieldInput caption="callbackUrl" value={form.callbackUrl} onChangeText={(t) => _form({ callbackUrl: t })} error={eMessage?.callbackUrl} />
-            <TxFieldInput caption="callbackSecret" value={form.callbackSecret} onChangeText={(t) => _form({ callbackSecret: t })} error={eMessage?.callbackSecret} />
-            <TxButton label="생성하기" onClick={hdCreateItem} />
-          </>
-        )}
-      </div>
-      <TxCoolTableScroller className="flex-1 flex" footer={(data?.total ?? 0) > ITEMSIZE && <TxCoolTablePagination value={filter.pageIdx} itemCount={data?.total ?? 0} onChangePage={(e) => _filter({ pageIdx: e })} itemVisibleCount={ITEMSIZE} />}>
-        {isLoading ? (
-          <TxLoading className="flex-1 h-full" visible />
-        ) : (
-          <TxCoolTable className="w-full text-sm text-center" data={data.data} renderBody={customRederBody} options={tableOptions} onChangeCell={hdChangeCell} onSelections={_selections} useCheckBox useRowSelect useMultiSelect />
-        )}
-      </TxCoolTableScroller>
+    <TxFlex className="flex flex-1 flex-col gap-2">
+      <TxForm className="flex flex-row items-end justify-end gap-3 mb-4">
+        <TxForm.Input caption="name" onChangeText={(t) => _form({ name: t })} error={eMessage?.name} />
+        <TxForm.Input caption="callbackUrl" value={form.callbackUrl} onChangeText={(t) => _form({ callbackUrl: t })} error={eMessage?.callbackUrl} />
+        <TxForm.Input caption="callbackSecret" value={form.callbackSecret} onChangeText={(t) => _form({ callbackSecret: t })} error={eMessage?.callbackSecret} />
+        <TxButton label="생성하기" onClick={hdCreateItem} />
+      </TxForm>
+
+      <TxAgGrid
+        rowData={data?.data}
+        option={tableOptions}
+        isLoading={isLoading}
+        defaultColDef={{ flex: 1 }}
+        offset={filter.offset}
+        pagination={{
+          currentPage: 1 + filter.offset / ITEMSIZE,
+          totalRows: data?.total ?? 0,
+          pageSize: ITEMSIZE,
+          onChangePage: (page) => _filter({ offset: (page - 1) * ITEMSIZE }),
+        }}
+        onCellClicked={hdCellClick}
+        stopEditingWhenCellsLoseFocus={true}
+        onCellValueChanged={hdCellChange}
+      />
       <TxModal visible={modal.isOpen} onExit={() => void (_modal({ isOpen: false, apiKey: '' }), _copied(false))}>
         <div className="mb-2">❗apiKey는 서버에 보관하지 않으므로 분실시 재발행해야 합니다.</div>
         <div className="border bg-gray-500 flex gap-2 w-full rounded justify-center items-center">
@@ -123,6 +107,6 @@ export default function AdminPartnerList({ pageRole, tableOptions }: { pageRole:
           <TxButton className="w-[6em]" label={!copied ? 'COPY' : 'COPIED'} onClick={hdCopyClipboard} />
         </div>
       </TxModal>
-    </div>
+    </TxFlex>
   );
 }

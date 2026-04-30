@@ -1,84 +1,69 @@
 import type { ChangeEvent, KeyboardEvent } from 'react';
-import React, { forwardRef, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { TxInputTheme, cm, themeMerge, type ITxInput, type ITxInputRef } from '..';
+import React, { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import { TxInputTheme, cm, parseTxInputNumber, themeMerge, useInput, type ITxInput, type ITxInputRef } from '..';
 
-export const TxInput = forwardRef<ITxInputRef, ITxInput>(
+const TxInputComponent = forwardRef<ITxInputRef, ITxInput>(
   ({ readOnly = false, id, name, theme, className, focus, autoComplete, value, defaultValue, onSubmitText, onSubmitNumber, onBlurNumber, onChangeText, onChangeInt, onChangeFloat, onChangeNumber, ...props }, ref) => {
+    // 테마 객체 병합 비용을 줄이기 위해 입력 테마를 memoized 값으로 유지한다.
     const stableTheme = useMemo(() => themeMerge(TxInputTheme, theme, 'override'), [theme]);
     const inputRef = useRef<HTMLInputElement>(null);
+    const { currentValue, inputId, isControlled, setValue } = useInput({ id, name, value, defaultValue });
 
-    // ✅ uncontrolled 상태 (defaultValue 기반)
-    const [innerValue, _innerValue] = useState<string>(() => String(defaultValue ?? value ?? ''));
-
-    // ✅ controlled 우선
-    const isControlled = value != null;
-    const xValue = isControlled ? String(value) : innerValue;
-
-    // ✅ id 안정화 (impure 제거)
-    const reactId = useId();
-    const inputId = id ?? name ?? reactId;
-
-    const parseNumber = (val: string): number | undefined => {
-      if (val.trim() === '') return undefined;
-      const num = Number(val);
-      return isNaN(num) ? undefined : num;
-    };
-
-    // ✅ ref API
     useImperativeHandle(
       ref,
       () => ({
-        setValue: (v: string) => {
-          if (!isControlled) _innerValue(v);
-        },
-        getValue: () => xValue,
+        setValue,
+        getValue: () => currentValue,
         focus: () => inputRef.current?.focus(),
+        select: () => inputRef.current?.select(),
       }),
-      [xValue, isControlled],
+      [currentValue, setValue],
     );
 
-    // ✅ focus 처리 (effect 허용: 외부 시스템 sync)
-    React.useEffect(() => {
+    useEffect(() => {
       if (focus) inputRef.current?.focus();
     }, [focus]);
 
-    const hdChange = (evt: ChangeEvent<HTMLInputElement>) => {
-      props.onChange?.(evt);
+    const hdChange = useCallback(
+      (evt: ChangeEvent<HTMLInputElement>) => {
+        props.onChange?.(evt);
 
-      const text = evt.target.value;
+        const text = evt.target.value;
+        if (!isControlled) setValue(text);
 
-      // ✅ uncontrolled일 때만 내부 상태 사용
-      if (!isControlled) {
-        _innerValue(text);
-      }
+        onChangeText?.(text);
 
-      onChangeText?.(text);
+        const num = parseTxInputNumber(text);
+        if (num != null) {
+          onChangeNumber?.(num);
+          onChangeInt?.(Math.trunc(num));
+          onChangeFloat?.(num);
+        }
+      },
+      [isControlled, onChangeFloat, onChangeInt, onChangeNumber, onChangeText, props, setValue],
+    );
 
-      const num = parseNumber(text);
-      if (num != null) {
-        onChangeNumber?.(num);
-        onChangeInt?.(Math.trunc(num));
-        onChangeFloat?.(num);
-      }
-    };
+    const hdKeyDown = useCallback(
+      (evt: KeyboardEvent<HTMLInputElement>) => {
+        if (evt.key !== 'Enter') return;
 
-    const hdKeyDown = (evt: KeyboardEvent<HTMLInputElement>) => {
-      if (evt.key !== 'Enter') return;
+        props.onEnter?.(evt);
 
-      props.onEnter?.(evt);
+        const nextValue = evt.currentTarget.value;
+        onSubmitText?.(nextValue);
+        onSubmitNumber?.(parseTxInputNumber(nextValue));
+      },
+      [onSubmitNumber, onSubmitText, props],
+    );
 
-      const val = evt.currentTarget.value;
+    const hdBlur = useCallback(
+      (evt: React.FocusEvent<HTMLInputElement>) => {
+        props.onBlur?.(evt);
 
-      onSubmitText?.(val);
-      onSubmitNumber?.(parseNumber(val));
-    };
-
-    const hdBlur = (evt: React.FocusEvent<HTMLInputElement>) => {
-      props.onBlur?.(evt);
-
-      const val = evt.currentTarget.value;
-      onBlurNumber?.(parseNumber(val));
-    };
+        onBlurNumber?.(parseTxInputNumber(evt.currentTarget.value));
+      },
+      [onBlurNumber, props],
+    );
 
     return (
       <div data-tag="TxInput" className={cm(stableTheme.wrapper, stableTheme.focus, readOnly && stableTheme.readOnly, className)}>
@@ -89,8 +74,8 @@ export const TxInput = forwardRef<ITxInputRef, ITxInput>(
           ref={inputRef}
           readOnly={readOnly}
           autoComplete={autoComplete}
-          className={cm(stableTheme.input, props.type == 'number' && stableTheme.number)}
-          value={xValue}
+          className={cm(stableTheme.input, props.type === 'number' && stableTheme.number)}
+          value={currentValue}
           onChange={hdChange}
           onKeyDown={hdKeyDown}
           onBlur={hdBlur}
@@ -100,4 +85,7 @@ export const TxInput = forwardRef<ITxInputRef, ITxInput>(
   },
 );
 
-TxInput.displayName = 'TxInput';
+TxInputComponent.displayName = 'TxInput';
+
+// 입력 컴포넌트는 테이블 필터/폼에서 반복 렌더링되므로 props 동일 시 재렌더를 줄인다.
+export const TxInput = memo(TxInputComponent);

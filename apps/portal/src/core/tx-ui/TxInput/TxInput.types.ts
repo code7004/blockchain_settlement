@@ -2,7 +2,10 @@ import type { ChangeEvent, KeyboardEvent } from 'react';
 import React from 'react';
 import { TxInput, TxInputTheme, type DeepPartial } from '..'; // :contentReference[oaicite:0]{index=0}
 
-export type TTxInputVale = string | number | readonly string[] | undefined;
+export type TTxInputValue = string | number | readonly string[] | undefined;
+
+/** @deprecated TTxInputValue를 사용한다. */
+export type TTxInputVale = TTxInputValue;
 
 export interface ITxInput extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'autoComplete'> {
   onChange?: (e: ChangeEvent<HTMLInputElement>) => void;
@@ -19,7 +22,7 @@ export interface ITxInput extends Omit<React.InputHTMLAttributes<HTMLInputElemen
   onEnter?: (e: KeyboardEvent<HTMLInputElement>) => void;
 
   focus?: boolean;
-  value?: TTxInputVale;
+  value?: TTxInputValue;
   autoComplete?: React.HTMLInputAutoCompleteAttribute;
   theme?: DeepPartial<typeof TxInputTheme>;
 }
@@ -28,10 +31,10 @@ export interface ITxInputRef {
   setValue: (v: string) => void;
   getValue: () => string;
   focus: () => void;
+  select: () => void;
 }
 
 export interface ITxSearchInputProps extends React.ComponentProps<typeof TxInput> {
-  caption?: string;
   onClear?: (value: string) => void;
   onSubmitText?: (value: string) => void;
 }

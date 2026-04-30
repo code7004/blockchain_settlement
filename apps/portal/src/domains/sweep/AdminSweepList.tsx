@@ -1,13 +1,12 @@
-import { type ITxCoolTableOption } from '@/core/tx-ui';
+import { type ITxAgGridOption } from '@/core/tx-ui';
 
 import { SYS_PAGE_ROLE } from '@/constants';
-import { bodyStyles, headStyles } from '@/lib/bodyStyles';
+import { customColumnDefs } from '@/lib/defaultBodyRenderer';
 import SweepList from './SweepList';
 
-const TableOptions: ITxCoolTableOption = {
-  headStyles,
-  bodyStyles,
-  headers: ['IDX', 'id', 'partnerId', 'depositId', 'txHash', 'fromAddress', 'toAddress', 'amount', 'feeAmount', 'feeSymbol', 'status', 'reason', 'errorMessage', 'writer', 'createdAt'],
+const TableOptions: ITxAgGridOption = {
+  headers: ['id', 'partnerId', 'depositId', 'txHash', 'fromAddress', 'toAddress', 'amount', 'feeAmount', 'feeSymbol', 'status', 'reason', 'errorMessage', 'writer', 'createdAt'],
+  customColumnDefs,
 };
 
 export default function AdminSweepList() {

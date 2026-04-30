@@ -1,12 +1,14 @@
 import { SYS_PAGE_ROLE } from '@/constants';
-import type { ITxCoolTableOption } from '@/core/tx-ui';
-import { bodyStyles, headStyles } from '@/lib/bodyStyles';
+import { type ITxAgGridColumnDef, type ITxAgGridOption } from '@/core/tx-ui';
+import { customColumnDefs } from '@/lib/defaultBodyRenderer';
+import type { CustomCellRendererProps } from 'ag-grid-react';
 import PartnerList from './PartnerList';
 
-const TableOptions: ITxCoolTableOption = {
-  headStyles,
-  bodyStyles,
-  editColumns: ['callbackUrl', 'name', 'callbackSecret'],
+const overDefs: ITxAgGridColumnDef = [{ field: 'key-reset', cellRenderer: (params: CustomCellRendererProps) => <div className="underline cursor-pointer">RESET API KEY{params.value}</div> }];
+
+const TableOptions: ITxAgGridOption = {
+  customColumnDefs: [...customColumnDefs, ...overDefs],
+  editColumns: ['callbackUrl', 'name', 'callbackSecret', 'isActive'],
   addHeaders: ['key-reset'],
   hiddenHeaders: ['apiKeyHash', 'memberId'],
 };

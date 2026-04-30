@@ -1,12 +1,11 @@
 import { SYS_PAGE_ROLE } from '@/constants';
-import type { ITxCoolTableOption } from '@/core/tx-ui';
-import { bodyStyles, headStyles } from '@/lib/bodyStyles';
+import type { ITxAgGridOption } from '@/core/tx-ui';
+import { customColumnDefs } from '@/lib/defaultBodyRenderer';
 import PartnerList from './PartnerList';
 
-const TableOptions: ITxCoolTableOption = {
-  headStyles,
-  bodyStyles,
-  editColumns: ['callbackUrl', 'name', 'callbackSecret'],
+const TableOptions: ITxAgGridOption = {
+  customColumnDefs: customColumnDefs,
+  editColumns: ['callbackUrl', 'name', 'callbackSecret', 'isActive'],
 };
 
 export default function AdminPartnerList() {

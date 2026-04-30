@@ -1,5 +1,5 @@
 import { SERVER_TYPE } from '@/constants';
-import { TxFieldDropdown, type ITxDropdownProps } from '@/core/tx-ui';
+import { TxForm, type ITxDropdownProps } from '@/core/tx-ui';
 import { configAction } from '@/store/config';
 import { useConfig } from '@/store/hooks/useConfig';
 import { useEffect, useState } from 'react';
@@ -24,5 +24,5 @@ export const TxDropdownServer = (props: Omit<ITxDropdownProps, 'data'>) => {
     dispatch(configAction.changeServer(server));
   };
 
-  return <TxFieldDropdown {...props} value={server as SERVER_TYPE} data={SeverTypes} onChangeText={hdChangeServer} warning={config.baseUrl} />;
+  return <TxForm.Dropdown {...props} value={server as SERVER_TYPE} data={SeverTypes} onChangeText={hdChangeServer} warning={config.baseUrl} />;
 };

@@ -1,4 +1,5 @@
-import { TxButton, TxDropMenu } from '@/core/tx-ui';
+import { AGGrid_Theme_TYPE } from '@/constants';
+import { TxButton, TxDropdown, TxDropMenu, type ITxDropdownItem } from '@/core/tx-ui';
 import { ChangePasswordModal } from '@/domains/member/components/ChangePasswordModal';
 import type { IState } from '@/store';
 import { authAction } from '@/store/auth';
@@ -22,11 +23,15 @@ function getRemainTime(expiresAt: number | undefined) {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+// const themes = [AGGrid_Theme_TYPE.Alpine, AGGrid_Theme_TYPE.Balham, AGGrid_Theme_TYPE.Material, AGGrid_Theme_TYPE.Quartz];
+const themes = Object.values(AGGrid_Theme_TYPE);
+
 export function Topbar() {
   const auth = useAuth();
   const config = useSelector((state: IState) => state.config);
   const isDark = config.darkMode;
   const dispatch = useAppDispatch();
+  const [theme, setTheme] = useState(themes[0]);
 
   const [remain, _remain] = useState('');
   const [isPassPop, _isPassPop] = useState(false);
@@ -46,6 +51,7 @@ export function Topbar() {
   useEffect(() => {
     if (isDark) {
       document.documentElement.classList.add('dark');
+      document.body.dataset.agThemeMode = 'dark-blue';
     }
   }, [isDark]);
 
@@ -70,6 +76,7 @@ export function Topbar() {
   const toggleDark = () => {
     const newVal = !isDark;
     document.documentElement.classList.toggle('dark', newVal);
+    document.body.dataset.agThemeMode = 'light';
     dispatch(configAction.darkMode(newVal));
   };
 
@@ -77,6 +84,13 @@ export function Topbar() {
     if (confirm('로그아웃 하시겠습니까?')) {
       dispatch(authAction.signOut());
     }
+  }
+
+  function hdChangeTheme(item: ITxDropdownItem<AGGrid_Theme_TYPE | undefined>): void {
+    if (!item.value) return;
+
+    setTheme(item.value);
+    dispatch(configAction.update({ themeId: item.value }));
   }
 
   return (
@@ -87,6 +101,8 @@ export function Topbar() {
         <span className="text-xs text-gray-400">Exp: {remain}</span>
 
         <TxDropMenu label={`👤 ${auth.username}`}>
+          <TxDropdown className="border-none" data={themes} value={theme} onChangeValue={hdChangeTheme} />
+          <TxDropMenu.Divider />
           <TxDropMenu.Item className="text-center" onClick={() => _isPassPop(true)} children="비밀번호변경" />
           <TxDropMenu.Divider />
           <TxDropMenu.Item className="text-center" onClick={hdClickSign} children="로그아웃" />

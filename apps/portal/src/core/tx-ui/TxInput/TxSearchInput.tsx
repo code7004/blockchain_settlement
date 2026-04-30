@@ -1,9 +1,9 @@
 import type { KeyboardEvent } from 'react';
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { TxSearchInputTheme, type ITxInputRef, type ITxSearchInputProps, type ITxSearchInputRef } from '.';
-import { IconClose, IconSearch, TxField, TxInput, cm, themeMerge } from '..';
+import { IconClose, IconSearch, TxFlex, TxInput, cm, themeMerge } from '..';
 
-export const TxSearchInput = forwardRef<ITxSearchInputRef, ITxSearchInputProps>(({ caption, theme, className, onClear, onSubmitText, onChangeText, value, ...props }, ref) => {
+export const TxSearchInput = forwardRef<ITxSearchInputRef, ITxSearchInputProps>(({ theme, className, onClear, onSubmitText, onChangeText, value, ...props }, ref) => {
   const stableTheme = useMemo(() => themeMerge(TxSearchInputTheme, theme, 'override'), [theme]);
   const inputRef = useRef<ITxInputRef>(null);
   const [showClear, _showClear] = useState(false);
@@ -46,13 +46,13 @@ export const TxSearchInput = forwardRef<ITxSearchInputRef, ITxSearchInputProps>(
   }
 
   return (
-    <TxField caption={caption} className={cm(stableTheme.wrapper, stableTheme.focus, className)}>
+    <TxFlex className={cm(stableTheme.wrapper, stableTheme.focus, className)}>
       <IconSearch className={stableTheme.icon} onClick={() => onSubmitText?.(inputRef.current?.getValue() ?? '')} />
 
       <TxInput ref={inputRef} value={value} onChangeText={hdChangeText} onEnter={hdEnter} className={'w-full'} {...props} theme={{ wrapper: '', focus: '' }} />
 
       {showClear && <IconClose className={stableTheme.icon} onClick={hdClear} />}
-    </TxField>
+    </TxFlex>
   );
 });
 

@@ -7,11 +7,14 @@ import { RouteRenderer } from '@/core/route-meta';
 import { store } from '@/store';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community';
 import { Suspense } from 'react';
 import { Provider as ReduxProvider } from 'react-redux';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { persistStore } from 'redux-persist';
 import { PersistGate } from 'redux-persist/integration/react';
+
+ModuleRegistry.registerModules([AllCommunityModule]);
 
 const queryClient = new QueryClient();
 

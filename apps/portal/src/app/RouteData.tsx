@@ -11,6 +11,7 @@ import ThotPage from '@/domains/blockchain/ThotPage';
 import WatcherStatusPage from '@/domains/blockchain/WatcherStatusPage';
 import AdminCallbackList from '@/domains/callback/AdminCallbackList';
 import PublicCallbackList from '@/domains/callback/PublicCallbackList';
+import AdminDashboard from '@/domains/dashboard/AdminDashboard';
 import PublicDashboard from '@/domains/dashboard/PublicDashboard';
 import AdminDepositList from '@/domains/deposit/AdminDepositList';
 import PublicDepositList from '@/domains/deposit/PublicDepositList';
@@ -132,7 +133,7 @@ export const RouteData = {
       Index: { index: true, element: <Navigate to="/admin/dashboard" replace /> },
       Dashboard: {
         path: '/admin/dashboard',
-        element: <PublicDashboard />,
+        element: <AdminDashboard />,
         meta: { label: 'Dashboard', icon: '📊', description: '입금,출금,콜백,워처 상태 등 운영 핵심 지표를 한눈에 확인하는 대시보드', permissions: [OWNER, OPERATOR] },
       },
       Members: {

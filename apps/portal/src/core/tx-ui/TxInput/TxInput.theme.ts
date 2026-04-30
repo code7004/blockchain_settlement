@@ -1,8 +1,8 @@
-import { TxClassBorderColor, TxClassFocus, TxClassTheme } from '../TxTheme';
+import { TxClassBase, TxClassBorder, TxClassFocus } from '../TxTheme';
 
 // ------------------- Input -------------------
 export const TxInputTheme = {
-  wrapper: `w-[10em] h-10 flex items-center rounded-md shadow-sm border ${TxClassBorderColor} ${TxClassTheme} `,
+  wrapper: `w-[10em] h-10 flex items-center rounded-md shadow-sm ${TxClassBorder} ${TxClassBase}`,
   focus: `${TxClassFocus}`,
   input: `w-full border-0 outline-0 px-3 bg-transparent text-base placeholder-gray-400 focus:outline-none focus:ring-0 disabled:opacity-50`,
   readOnly: `opacity-50`,

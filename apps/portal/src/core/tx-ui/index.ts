@@ -1,12 +1,14 @@
+export * from './TxAgGrid';
+export { default as TxAgGrid } from './TxAgGrid/TxAgGrid';
 export * from './TxButton';
 export * from './TxCapsLockCheck';
 export * from './TxCard';
 export * from './TxCheckBox';
 export * from './TxClipboardButton';
 export * from './TxCoolTable';
-export * from './TxDropMenu';
+export * from './TxDayPicker';
 export * from './TxDropdown';
-export * from './TxField';
+export * from './TxDropMenu';
 export * from './TxFlex';
 export * from './TxForm';
 export * from './TxHeader';
